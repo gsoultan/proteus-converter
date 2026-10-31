@@ -1,0 +1,70 @@
+/* proteus-converter Markdown theme, modelled on GitHub's markdown styles. */
+.markdown-body {
+  color: #1f2328;
+  background-color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+body { margin: 0 }
+.markdown-body > *:first-child { margin-top: 0 !important }
+.markdown-body > *:last-child { margin-bottom: 0 !important }
+.markdown-body a { color: #0969da; text-decoration: underline }
+.markdown-body p, .markdown-body blockquote, .markdown-body ul, .markdown-body ol, .markdown-body dl,
+.markdown-body table, .markdown-body pre, .markdown-body details { margin-top: 0; margin-bottom: 16px }
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+  margin-top: 24px; margin-bottom: 16px; font-weight: 600; line-height: 1.25;
+}
+.markdown-body h1 { font-size: 2em; padding-bottom: .3em; border-bottom: 1px solid #d1d9e0b3 }
+.markdown-body h2 { font-size: 1.5em; padding-bottom: .3em; border-bottom: 1px solid #d1d9e0b3 }
+.markdown-body h3 { font-size: 1.25em }
+.markdown-body h4 { font-size: 1em }
+.markdown-body h5 { font-size: .875em }
+.markdown-body h6 { font-size: .85em; color: #59636e }
+.markdown-body blockquote { margin-left: 0; margin-right: 0; padding: 0 1em; color: #59636e; border-left: .25em solid #d1d9e0 }
+.markdown-body blockquote > :first-child { margin-top: 0 }
+.markdown-body blockquote > :last-child { margin-bottom: 0 }
+.markdown-body ul, .markdown-body ol { padding-left: 2em }
+.markdown-body ul ul, .markdown-body ul ol, .markdown-body ol ol, .markdown-body ol ul { margin-top: 0; margin-bottom: 0 }
+.markdown-body li + li { margin-top: .25em }
+.markdown-body li > p { margin-top: 16px }
+.markdown-body ol ol, .markdown-body ul ol { list-style-type: lower-roman }
+.markdown-body ul ul ol, .markdown-body ul ol ol, .markdown-body ol ul ol, .markdown-body ol ol ol { list-style-type: lower-alpha }
+.markdown-body .task-list-item { list-style-type: none }
+.markdown-body .contains-task-list { padding-left: 2em }
+.markdown-body li > input[type=checkbox] { margin: 0 .2em .25em -1.4em; vertical-align: middle }
+.markdown-body dl { padding: 0 }
+.markdown-body dl dt { padding: 0; margin-top: 16px; font-size: 1em; font-style: italic; font-weight: 600 }
+.markdown-body dl dd { padding: 0 16px; margin-bottom: 16px; margin-left: 0 }
+.markdown-body hr { height: .25em; padding: 0; margin: 24px 0; background-color: #d1d9e0; border: 0 }
+.markdown-body table { border-spacing: 0; border-collapse: collapse; display: table; width: max-content; max-width: 100% }
+.markdown-body table th { font-weight: 600 }
+.markdown-body table th, .markdown-body table td { padding: 6px 13px; border: 1px solid #d1d9e0 }
+.markdown-body table tr { background-color: #ffffff; border-top: 1px solid #d1d9e0b3 }
+.markdown-body table tr:nth-child(2n) { background-color: #f6f8fa }
+.markdown-body img { max-width: 100%; box-sizing: content-box; background-color: #ffffff }
+.markdown-body code, .markdown-body tt, .markdown-body kbd, .markdown-body samp, .markdown-body pre {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+.markdown-body code, .markdown-body tt {
+  padding: .2em .4em; margin: 0; font-size: 85%; white-space: break-spaces;
+  background-color: #818b981f; border-radius: 6px;
+}
+.markdown-body pre {
+  padding: 16px; overflow: auto; font-size: 85%; line-height: 1.45; color: #1f2328;
+  background-color: #f6f8fa; border-radius: 6px; word-wrap: normal;
+}
+.markdown-body pre code, .markdown-body pre tt {
+  display: inline; padding: 0; margin: 0; overflow: visible; line-height: inherit; word-wrap: normal;
+  background-color: transparent; border: 0; font-size: 100%; white-space: pre; border-radius: 0;
+}
+.markdown-body kbd {
+  display: inline-block; padding: 3px 5px; font-size: 11px; line-height: 10px; color: #1f2328;
+  vertical-align: middle; background-color: #f6f8fa; border: solid 1px #d1d9e0b3; border-bottom-color: #d1d9e0b3;
+  border-radius: 6px;
+}
+.markdown-body del { text-decoration: line-through }
+.markdown-body .footnotes { font-size: 12px; color: #59636e; border-top: 1px solid #d1d9e0 }
+@page { margin: 2cm }
