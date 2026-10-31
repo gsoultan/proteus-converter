@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gsoultan/proteus-converter/css"
+	"github.com/gsoultan/proteus-converter/svg"
 )
 
 type blockResult struct {
@@ -16,6 +17,7 @@ type blockResult struct {
 	hasBaseline   bool
 	pushedFirst   bool // the box moved to a later page because its first content did
 	breakAfter    bool
+	bx, bw        float64 // border box left edge and width (bw 0 when unknown)
 }
 
 type contentsResult struct {
@@ -27,6 +29,7 @@ type contentsResult struct {
 	lastBaseline  float64
 	hasBaseline   bool
 	pushedFirst   bool
+	oof           bool // floats or absolutely positioned boxes were found
 }
 
 // edges holds resolved horizontal box edges.
@@ -114,9 +117,105 @@ func (l *layouter) layoutBlock(b *Box, x, y, cbw float64, pending margins, bfc b
 	return l.layoutBlockW(b, x, y, cbw, pending, bfc, -1)
 }
 
+// layoutBlockW lays out a block-level box. It sets up a new float context for
+// block formatting context roots, lays out the absolutely positioned
+// descendants of positioned boxes and applies relative offsets.
 func (l *layouter) layoutBlockW(b *Box, x, y, cbw float64, pending margins, bfc bool, forced float64) blockResult {
 	s := b.Style
 	startLen := len(l.items)
+	newBFC := bfc || isBFC(b)
+	savedFC := l.fc
+	if newBFC {
+		l.fc = &floatCtx{}
+	}
+	positioned := s.Position != "static" && s.Position != ""
+	savedPos := l.pos
+	if positioned {
+		l.pos = &posCtx{}
+	}
+	r := l.layoutBlockInner(b, x, y, cbw, pending, newBFC, forced)
+	l.fc = savedFC
+	if !positioned {
+		return r
+	}
+	pc := l.pos
+	l.pos = savedPos
+	bx, bw := r.bx, r.bw
+	if bw <= 0 {
+		bx, bw = x, cbw
+	}
+	bl, br := s.BorderUsed(css.Left), s.BorderUsed(css.Right)
+	bt, bb := s.BorderUsed(css.Top), s.BorderUsed(css.Bottom)
+	l.layoutAbsolute(pc, Clip{X: bx + bl, Y: r.top + bt, W: bw - bl - br, H: math.Max(r.bottom-r.top-bt-bb, 0)})
+	if s.Position == "relative" || s.Position == "sticky" {
+		dx, dy := relativeOffset(s, cbw)
+		if dx != 0 || dy != 0 {
+			translateItems(l.items[startLen:], dx, dy)
+		}
+	}
+	return r
+}
+
+// definiteHeight returns the definite content height of a box, or -1.
+func (l *layouter) definiteHeight(b *Box, cbw float64) float64 {
+	s := b.Style
+	extra := s.BorderUsed(css.Top) + s.BorderUsed(css.Bottom) + s.Padding[css.Top].Resolve(cbw, 0) + s.Padding[css.Bottom].Resolve(cbw, 0)
+	if t, ok := l.e.forcedH[b]; ok {
+		return math.Max(t-extra, 0)
+	}
+	if s.Height.Auto || s.Height.HasPct() {
+		return -1
+	}
+	h := s.Height.Resolve(0, 0)
+	if s.BoxSizing == "border-box" {
+		h -= extra
+	}
+	if !s.MaxHeight.Auto && !s.MaxHeight.HasPct() {
+		mh := s.MaxHeight.Resolve(0, 0)
+		if s.BoxSizing == "border-box" {
+			mh -= extra
+		}
+		h = math.Min(h, mh)
+	}
+	if !s.MinHeight.HasPct() {
+		mh := s.MinHeight.Resolve(0, 0)
+		if s.BoxSizing == "border-box" {
+			mh -= extra
+		}
+		h = math.Max(h, mh)
+	}
+	return math.Max(h, 0)
+}
+
+// relativeOffset returns the offset of a relatively positioned box.
+func relativeOffset(s *css.Style, cbw float64) (dx, dy float64) {
+	if s.Position != "relative" {
+		return 0, 0
+	}
+	in := s.Inset
+	switch {
+	case !in[css.Left].Auto:
+		dx = in[css.Left].Resolve(cbw, 0)
+	case !in[css.Right].Auto:
+		dx = -in[css.Right].Resolve(cbw, 0)
+	}
+	switch {
+	case !in[css.Top].Auto:
+		dy = in[css.Top].Resolve(0, 0)
+	case !in[css.Bottom].Auto:
+		dy = -in[css.Bottom].Resolve(0, 0)
+	}
+	return dx, dy
+}
+
+func (l *layouter) layoutBlockInner(b *Box, x, y, cbw float64, pending margins, bfc bool, forced float64) blockResult {
+	s := b.Style
+	startLen := len(l.items)
+	fcN, fcTop := l.fc.snapshot()
+	posN := 0
+	if l.pos != nil {
+		posN = len(l.pos.boxes)
+	}
 	savedMarker := l.marker
 	forcedPush := false
 	if l.fragment && isForcedBreak(s.BreakBefore) && !l.atPageStart(y) {
@@ -153,13 +252,12 @@ func (l *layouter) layoutBlockW(b *Box, x, y, cbw float64, pending margins, bfc 
 		}
 		bottom := ny + a.h - mt - mb
 		return blockResult{top: ny, bottom: bottom, pending: margins{}.add(mb), pushedFirst: ny != top || forcedPush,
-			breakAfter: isForcedBreak(s.BreakAfter)}
+			breakAfter: isForcedBreak(s.BreakAfter), bx: left + e.ml, bw: a.w - e.ml - e.mr}
 	}
 
 	e, cw := l.blockWidth(s, cbw, forced)
 	bt, bb := s.BorderUsed(css.Top), s.BorderUsed(css.Bottom)
 	pt, pb := s.Padding[css.Top].Resolve(cbw, 0), s.Padding[css.Bottom].Resolve(cbw, 0)
-	bfc = bfc || isBFC(b)
 	pend := pending.add(mt)
 	bg := &groupItem{}
 	l.emit(bg)
@@ -181,7 +279,14 @@ func (l *layouter) layoutBlockW(b *Box, x, y, cbw float64, pending margins, bfc 
 	} else {
 		top = y + pend.value()
 		contentTop = top + bt + pt
-		cr = l.layoutContents(b, cx, contentTop, cw, margins{})
+		switch {
+		case s.IsFlex():
+			cr = l.layoutFlex(b, cx, contentTop, cw, l.definiteHeight(b, cbw))
+		case s.IsGrid():
+			cr = l.layoutGrid(b, cx, contentTop, cw, l.definiteHeight(b, cbw))
+		default:
+			cr = l.layoutContents(b, cx, contentTop, cw, margins{})
+		}
 	}
 	// an outside marker of an item without inline content sits on the first line position
 	if l.marker != nil && l.marker.box == b.Marker && b.Marker != nil {
@@ -209,7 +314,9 @@ func (l *layouter) layoutBlockW(b *Box, x, y, cbw float64, pending margins, bfc 
 	}
 	collapseBottom := !bfc && bb == 0 && pb == 0 && heightAuto && minH == 0
 	if !cr.placed && collapseTop && collapseBottom {
-		l.items = l.items[:startLen]
+		if !cr.oof {
+			l.items = l.items[:startLen]
+		}
 		l.emitIDs(b, y)
 		return blockResult{top: y, bottom: y, collapsed: true, pending: pend.join(cr.pending).add(mb),
 			breakAfter: isForcedBreak(s.BreakAfter)}
@@ -225,6 +332,10 @@ func (l *layouter) layoutBlockW(b *Box, x, y, cbw float64, pending margins, bfc 
 		out = cr.pending.add(mb)
 	} else {
 		contentEnd += cr.pending.value()
+		if bfc && heightAuto {
+			// a block formatting context root contains its floats
+			contentEnd = math.Max(contentEnd, l.fc.bottom())
+		}
 		ch := math.Max(contentEnd-contentTop, 0)
 		if !heightAuto {
 			h := s.Height.Resolve(0, 0)
@@ -246,6 +357,9 @@ func (l *layouter) layoutBlockW(b *Box, x, y, cbw float64, pending margins, bfc 
 			}
 			ch = math.Max(ch, minH)
 		}
+		if target, ok := l.e.forcedH[b]; ok {
+			ch = math.Max(target-bt-pt-pb-bb, 0)
+		}
 		if target, ok := l.e.cellHeight[b]; ok {
 			if need := target - bt - pt - pb - bb; need > ch {
 				shift := 0.0
@@ -266,7 +380,8 @@ func (l *layouter) layoutBlockW(b *Box, x, y, cbw float64, pending margins, bfc 
 	}
 
 	res := blockResult{top: top, bottom: bottom, pending: out, firstBaseline: cr.firstBaseline,
-		lastBaseline: cr.lastBaseline, hasBaseline: cr.hasBaseline, breakAfter: isForcedBreak(s.BreakAfter)}
+		lastBaseline: cr.lastBaseline, hasBaseline: cr.hasBaseline, breakAfter: isForcedBreak(s.BreakAfter),
+		bx: x + e.ml, bw: cw + e.pl + e.pr + e.bl + e.br}
 	res.pushedFirst = forcedPush || (collapseTop && cr.pushedFirst)
 
 	if l.fragment && !forcedPush && !l.atPageStart(top) {
@@ -282,7 +397,11 @@ func (l *layouter) layoutBlockW(b *Box, x, y, cbw float64, pending margins, bfc 
 		if restartAt > top {
 			l.items = l.items[:startLen]
 			l.marker = savedMarker
-			r := l.layoutBlockW(b, x, restartAt, cbw, margins{}, bfc, forced)
+			l.fc.restore(fcN, fcTop)
+			if l.pos != nil {
+				l.pos.boxes = l.pos.boxes[:posN]
+			}
+			r := l.layoutBlockInner(b, x, restartAt, cbw, margins{}, bfc, forced)
 			r.pushedFirst = true
 			return r
 		}
@@ -291,15 +410,9 @@ func (l *layouter) layoutBlockW(b *Box, x, y, cbw float64, pending margins, bfc 
 	// paint background and borders under the content
 	bx := x + e.ml
 	bw := cw + e.pl + e.pr + e.bl + e.br
-	if b != l.e.canvasBox && !s.BackgroundColor.IsTransparent() && s.Visibility == "visible" {
-		bg.items = append(bg.items, &RectItem{X: bx, Y: top, W: bw, H: bottom - top, Color: s.BackgroundColor,
-			Radius: s.BorderRadius[0].Resolve(bw, 0)})
-	}
-	if s.BackgroundImage != "" {
-		l.e.warnOnce("layout: background images are not supported yet")
-	}
 	saved := l.items
 	l.items = nil
+	l.emitBackgroundCB(b, bx, top, bw, bottom-top, cbw)
 	l.emitBorders(s, bx, top, bw, bottom-top, [4]bool{true, true, true, true})
 	bg.items = append(bg.items, l.items...)
 	l.items = saved
@@ -341,12 +454,13 @@ func (l *layouter) layoutContents(b *Box, x, y, w float64, pending margins) cont
 		res.pending = pending
 		return res
 	}
-	if !b.Children[0].isBlockLevel() {
+	if !hasBlockChild(b) {
 		pend := pending
 		start := y + pending.value()
 		ir := l.layoutInline(b, x, y, w, &pend)
 		if !ir.placed {
 			res.pending = pending
+			res.oof = ir.oof
 			return res
 		}
 		res.placed = true
@@ -361,8 +475,51 @@ func (l *layouter) layoutContents(b *Box, x, y, w float64, pending margins) cont
 	}
 	cur := y
 	pend := pending
+	// out-of-flow boxes wait until the margins they adjoin are resolved:
+	// they sit at the top of the next in-flow box (or the end of the content)
+	// once content is placed (or the container does not collapse its top
+	// margin) the block offset is known and floats are placed where they occur
+	deferOOF := pending != margins{}
+	var waiting []*Box
+	flushOOF := func(at float64) {
+		for _, c := range waiting {
+			if c.Style.IsAbsolute() {
+				l.addAbs(c, x, at)
+			} else {
+				l.placeFloat(c, nil, x, at, w)
+			}
+		}
+		waiting = waiting[:0]
+	}
 	for _, c := range b.Children {
-		r := l.layoutBlock(c, x, cur, w, pend, false)
+		cs := c.Style
+		if c.outOfFlow() {
+			waiting = append(waiting, c)
+			res.oof = true
+			if !deferOOF || res.placed {
+				flushOOF(cur + pend.value())
+			}
+			continue
+		}
+		mt := cs.Margin[css.Top].Resolve(w, 0)
+		if len(waiting) > 0 {
+			flushOOF(cur + pend.add(mt).value())
+		}
+		if cs.Clear != "none" && !l.fc.empty() {
+			if cy := l.fc.clearY(cs.Clear); !math.IsInf(cy, -1) && cur+pend.add(mt).value() < cy-eps {
+				cur = cy - mt
+				pend = margins{}
+			}
+		}
+		cx, cw := x, w
+		if !l.fc.empty() && isBFC(c) {
+			// a block formatting context root does not overlap floats
+			top := cur + pend.add(mt).value()
+			if bl, br := l.fc.band(top, 1, x, x+w); bl > x+eps || br < x+w-eps {
+				cx, cw = bl, math.Max(br-bl, 0)
+			}
+		}
+		r := l.layoutBlock(c, cx, cur, cw, pend, false)
 		if r.collapsed {
 			pend = r.pending
 			if r.breakAfter && l.fragment {
@@ -390,9 +547,55 @@ func (l *layouter) layoutContents(b *Box, x, y, w float64, pending margins) cont
 			pend = margins{}
 		}
 	}
+	if len(waiting) > 0 {
+		flushOOF(cur + pend.value())
+	}
 	res.end = cur
 	res.pending = pend
 	return res
+}
+
+// roundedBorder strokes a uniform border with rounded corners as one path.
+// It reports false when the border is not uniform or has no radius.
+func (l *layouter) roundedBorder(s *css.Style, x, y, w, h float64, sides [4]bool) bool {
+	r := s.BorderRadius[0].Resolve(w, 0)
+	if r <= 0 || sides != [4]bool{true, true, true, true} {
+		return false
+	}
+	bw := s.BorderUsed(0)
+	if bw <= 0 {
+		return false
+	}
+	col := s.BorderColor[0]
+	style := s.BorderStyle[0]
+	for side := 1; side < 4; side++ {
+		if s.BorderUsed(side) != bw || s.BorderColor[side] != col || s.BorderStyle[side] != style {
+			return false
+		}
+	}
+	switch style {
+	case "solid", "dashed", "dotted":
+	default:
+		return false
+	}
+	if col.IsTransparent() {
+		return true
+	}
+	r = math.Min(r, math.Min(w, h)/2)
+	ir := math.Max(r-bw/2, 0)
+	c := col
+	st := PathStyle{Stroke: &c, StrokeWidth: bw}
+	switch style {
+	case "dashed":
+		st.Dash = []float64{3 * bw, 3 * bw}
+	case "dotted":
+		st.Dash = []float64{bw, bw}
+		st.LineCap = 1
+		st.Dash = []float64{0.001, 2 * bw}
+	}
+	l.emit(&PathItem{M: svg.Identity, Top: y, Style: st,
+		Segs: svg.RoundRect(x+bw/2, y+bw/2, w-bw, h-bw, ir, ir)})
+	return true
 }
 
 // dark returns Blink's darkened variant of a color (used for inset/outset/groove/ridge).
@@ -408,6 +611,9 @@ func dark(c css.Color) css.Color {
 // emitBorders draws the borders of a box whose border box is (x, y, w, h).
 func (l *layouter) emitBorders(s *css.Style, x, y, w, h float64, sides [4]bool) {
 	if s.Visibility != "visible" {
+		return
+	}
+	if l.roundedBorder(s, x, y, w, h, sides) {
 		return
 	}
 	for side := range 4 {

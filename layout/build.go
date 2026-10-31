@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gsoultan/proteus-converter/css"
+	"github.com/gsoultan/proteus-converter/svg"
 	"golang.org/x/net/html"
 )
 
@@ -158,7 +159,9 @@ func (bd *Builder) element(n *html.Node, s *css.Style, parentDecos []Decoration)
 			v, _ = attr(n, "placeholder")
 		}
 		return []*Box{{Kind: KindInlineBlock, Style: s, Node: n, Children: []*Box{{Kind: KindText, Style: s, Text: v}}}}
-	case "svg", "canvas", "video", "audio", "iframe", "object", "embed", "math":
+	case "svg":
+		return []*Box{bd.inlineSVG(n, s, parentDecos)}
+	case "canvas", "video", "audio", "iframe", "object", "embed", "math":
 		bd.warn("layout: <" + n.Data + "> is not supported yet and was skipped")
 		return nil
 	case "textarea", "select", "button":
@@ -166,6 +169,15 @@ func (bd *Builder) element(n *html.Node, s *css.Style, parentDecos []Decoration)
 	}
 	if s.Display == "table-column" || s.Display == "table-column-group" {
 		return nil
+	}
+
+	if s.BackgroundImage != "" && bd.Images != nil {
+		img, err := bd.Images(s.BackgroundImage)
+		if err != nil {
+			bd.warn("layout: background image " + s.BackgroundImage + ": " + err.Error())
+		} else {
+			b.BgImage = img
+		}
 	}
 
 	atomic := kind == KindInlineBlock || kind == KindTable || kind == KindCell || kind == KindCaption
@@ -255,6 +267,20 @@ func (bd *Builder) image(n *html.Node, s *css.Style, decos []Decoration) *Box {
 			return &Box{Kind: KindInline, Style: s, Node: n}
 		}
 		return &Box{Kind: KindInline, Style: s, Node: n, Children: []*Box{{Kind: KindText, Style: s, Text: alt, Decorations: decos}}}
+	}
+	return b
+}
+
+// inlineSVG builds a replaced box for an inline <svg> element.
+func (bd *Builder) inlineSVG(n *html.Node, s *css.Style, decos []Decoration) *Box {
+	d := svg.FromNode(n, s.Color)
+	for _, w := range d.Warnings {
+		bd.warn("layout: " + w)
+	}
+	img := &Image{SVG: d, Width: int(d.Width), Height: int(d.Height)}
+	b := &Box{Kind: KindImage, Style: s, Node: n, Image: img, Decorations: decos}
+	if id, ok := attr(n, "id"); ok {
+		b.ID = id
 	}
 	return b
 }

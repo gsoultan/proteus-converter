@@ -19,6 +19,12 @@ type Engine struct {
 	cellHeight map[*Box]float64
 	canvasBox  *Box // box whose background was propagated to the page canvas
 	intrinsic  map[*Box][2]float64
+	forcedH    map[*Box]float64 // border-box heights imposed by flex, grid and absolute layout
+	forcedW    map[*Box]float64 // border-box widths imposed on replaced flex and grid items
+
+	fixedOK    bool     // position: fixed boxes repeat on every page
+	fixedBoxes []absBox // collected during layout
+	fixedItems []Item   // laid out against the page area, copied onto every page
 }
 
 // CanvasBackground returns the page background propagated from the root or
@@ -44,8 +50,20 @@ func (e *Engine) Layout(root *Box) []Item {
 	e.metrics = map[*css.Style]styleMetrics{}
 	e.intrinsic = map[*Box][2]float64{}
 	e.cellHeight = map[*Box]float64{}
-	l := &layouter{e: e, fragment: true}
+	e.forcedH = map[*Box]float64{}
+	e.forcedW = map[*Box]float64{}
+	e.fixedBoxes, e.fixedItems = nil, nil
+	e.fixedOK = true
+	l := &layouter{e: e, fragment: true, fc: &floatCtx{}, pos: &posCtx{}}
 	l.layoutBlock(root, 0, 0, e.PageWidth, margins{}, true)
+	// absolutely positioned boxes without a positioned ancestor use the first page area
+	l.layoutAbsolute(l.pos, Clip{W: e.PageWidth, H: e.PageHeight})
+	e.fixedOK = false
+	if len(e.fixedBoxes) > 0 {
+		fl := &layouter{e: e}
+		fl.layoutAbsolute(&posCtx{boxes: e.fixedBoxes}, Clip{W: e.PageWidth, H: e.PageHeight})
+		e.fixedItems = fl.items
+	}
 	return l.items
 }
 
@@ -61,9 +79,12 @@ type layouter struct {
 	items    []Item
 	fragment bool // apply page breaks
 	marker   *pendingMarker
+	fc       *floatCtx // floats of the current block formatting context
+	pos      *posCtx   // absolutely positioned boxes waiting for their containing block
 }
 
-func (l *layouter) sub() *layouter { return &layouter{e: l.e} }
+// sub returns a layouter for an independent formatting context laid out at the origin.
+func (l *layouter) sub() *layouter { return &layouter{e: l.e, fc: &floatCtx{}} }
 
 func (l *layouter) emit(it Item) { l.items = append(l.items, it) }
 

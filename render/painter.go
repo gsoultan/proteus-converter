@@ -9,6 +9,7 @@ import (
 	"github.com/gsoultan/proteus-converter/css"
 	"github.com/gsoultan/proteus-converter/fonts"
 	"github.com/gsoultan/proteus-converter/layout"
+	"github.com/gsoultan/proteus-converter/svg"
 )
 
 // Painter receives drawing commands in page coordinates: points, origin at
@@ -19,7 +20,11 @@ type Painter interface {
 	Line(x1, y1, x2, y2, width float64, c css.Color, dash []float64)
 	Ellipse(x, y, w, h float64, c css.Color, stroke float64)
 	Text(x, baseline float64, text string, face *fonts.Face, size float64, c css.Color, letterSpacing float64)
-	Image(x, y, w, h float64, img *layout.Image)
+	// Image draws a raster image, clipped to clip when clip.Active(). Images
+	// are painted in call order with the other graphics (under all text).
+	Image(x, y, w, h float64, img *layout.Image, clip layout.Clip)
+	// Path fills and/or strokes a path given in user units; m maps them to page coordinates.
+	Path(m svg.Matrix, segs []svg.Seg, style layout.PathStyle, clip layout.Clip)
 	LinkURL(x, y, w, h float64, url string)
 	LinkDest(x, y, w, h float64, dest string)
 	NamedDest(name string, y float64)
@@ -54,7 +59,15 @@ func Paint(d *Document, p Painter, w io.Writer) error {
 			case *layout.TextItem:
 				p.Text(ox+v.X, oy+v.Baseline, v.Text, v.Face, v.Size, v.Color, v.LetterSpacing)
 			case *layout.ImageItem:
-				p.Image(ox+v.X, oy+v.Y, v.W, v.H, v.Image)
+				clip := v.Clip
+				clip.X += ox
+				clip.Y += oy
+				p.Image(ox+v.X, oy+v.Y, v.W, v.H, v.Image, clip)
+			case *layout.PathItem:
+				clip := v.Clip
+				clip.X += ox
+				clip.Y += oy
+				p.Path(svg.Translate(ox, oy).Mul(v.M), v.Segs, v.Style, clip)
 			case *layout.LinkItem:
 				if v.URL != "" {
 					p.LinkURL(ox+v.X, oy+v.Y, v.W, v.H, v.URL)

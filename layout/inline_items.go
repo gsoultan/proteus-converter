@@ -19,6 +19,8 @@ const (
 	fOpen
 	fClose
 	fWbr
+	fFloat // a float anchored in the line (zero width for line breaking)
+	fAbs   // the static position of an absolutely positioned box
 )
 
 // inlineCtx is an inline box (span, a, code...) that frags are nested in.
@@ -27,6 +29,7 @@ type inlineCtx struct {
 	style          *css.Style
 	parent         *inlineCtx
 	shift          float64 // cumulative baseline shift (positive = down)
+	relX, relY     float64 // cumulative position: relative offset
 	ml, mr, bl, br float64
 	pl, pr         float64
 	href           string
@@ -55,6 +58,8 @@ type frag struct {
 	breakOK  bool // a line break may follow this frag
 	collapse bool // collapsible space (removed at line edges)
 	hang     bool // preserved space that hangs at line end (pre-wrap)
+	box      *Box // fFloat, fAbs
+	placed   bool // fFloat: already positioned
 }
 
 type fragBuilder struct {
@@ -92,9 +97,15 @@ func (fb *fragBuilder) walk(boxes []*Box, ctx *inlineCtx, parentStyle *css.Style
 			c := &inlineCtx{box: b, style: s, parent: ctx, href: b.Href}
 			if ctx != nil {
 				c.shift = ctx.shift
+				c.relX, c.relY = ctx.relX, ctx.relY
 				if c.href == "" {
 					c.href = ctx.href
 				}
+			}
+			if s.Position == "relative" {
+				dx, dy := relativeOffset(s, fb.avail)
+				c.relX += dx
+				c.relY += dy
 			}
 			parentSize := parentStyle.FontSize
 			c.shift += verticalShift(s, parentSize, fb.l.e.styleMetrics(s).lh)
@@ -112,6 +123,14 @@ func (fb *fragBuilder) walk(boxes []*Box, ctx *inlineCtx, parentStyle *css.Style
 				fb.lastSpace = false
 			}
 		default:
+			if b.outOfFlow() {
+				if b.Style.IsAbsolute() {
+					fb.push(&frag{kind: fAbs, style: b.Style, ctx: ctx, box: b})
+				} else {
+					fb.push(&frag{kind: fFloat, style: b.Style, ctx: ctx, box: b, atomic: fb.l.layoutAtomic(b, fb.avail)})
+				}
+				continue
+			}
 			a := fb.l.layoutAtomic(b, fb.avail)
 			if a == nil {
 				continue

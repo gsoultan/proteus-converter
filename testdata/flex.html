@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Flexbox layout</title>
+<style>
+  @page { size: A4; margin: 1cm; }
+  body { font-family: sans-serif; font-size: 13px; color: #1f2937; margin: 0; }
+  header { display: flex; align-items: center; gap: 16px; background: #1e293b; color: #fff; padding: 10px 16px; }
+  header .logo { font-weight: bold; font-size: 16px; }
+  header nav { display: flex; gap: 12px; }
+  header .user { margin-left: auto; background: #334155; padding: 4px 10px; border-radius: 12px; }
+  main { padding: 16px; }
+  .stats { display: flex; gap: 12px; margin-bottom: 16px; }
+  .stat { flex: 1; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; }
+  .stat b { display: block; font-size: 20px; margin-top: 4px; }
+  .split { display: flex; gap: 16px; align-items: flex-start; }
+  .split aside { flex: 0 0 160px; background: #eef2ff; padding: 10px; }
+  .split section { flex: 1; }
+  .row { display: flex; justify-content: space-between; border-bottom: 1px solid #e5e7eb; padding: 6px 0; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+  .tags span { background: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 10px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; height: 150px; justify-content: space-between; background: #fef3c7; padding: 8px; }
+  .stack div { background: #fcd34d; padding: 6px; }
+  .center { display: flex; justify-content: center; align-items: center; height: 60px; background: #ecfdf5; margin-top: 12px; }
+  .rev { display: flex; flex-direction: row-reverse; gap: 8px; margin-top: 12px; }
+  .rev div { background: #fecaca; padding: 6px 10px; }
+</style>
+</head>
+<body>
+<header><span class="logo">Acme Ops</span><nav><span>Dashboard</span><span>Orders</span><span>Reports</span></nav><span class="user">j.doe</span></header>
+<main>
+  <div class="stats">
+    <div class="stat">Revenue<b>$48,210</b></div>
+    <div class="stat">Orders<b>1,284</b></div>
+    <div class="stat">Refunds<b>23</b></div>
+  </div>
+  <div class="split">
+    <aside>Filters<br>Region: all<br>Period: Q2</aside>
+    <section>
+      <div class="row"><span>North</span><span>$18,400</span></div>
+      <div class="row"><span>South</span><span>$12,950</span></div>
+      <div class="row"><span>East</span><span>$9,800</span></div>
+      <div class="row"><span>West</span><span>$7,060</span></div>
+      <div class="tags"><span>priority</span><span>wholesale</span><span>retail</span><span>online</span><span>returns</span><span>seasonal</span></div>
+    </section>
+  </div>
+  <div class="stack"><div>First step</div><div>Second step</div><div>Third step</div></div>
+  <div class="center"><span>Centered both ways</span></div>
+  <div class="rev"><div>one</div><div>two</div><div>three</div></div>
+</main>
+</body>
+</html>

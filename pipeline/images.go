@@ -12,6 +12,7 @@ import (
 
 	"github.com/gsoultan/proteus-converter/core"
 	"github.com/gsoultan/proteus-converter/layout"
+	"github.com/gsoultan/proteus-converter/svg"
 )
 
 type imageLoader struct {
@@ -19,13 +20,12 @@ type imageLoader struct {
 	loader core.ResourceLoader
 	base   string
 	cache  map[string]*layout.Image
+	warn   func(string)
 }
 
-func newImageLoader(ctx context.Context, l core.ResourceLoader, base string) *imageLoader {
-	return &imageLoader{ctx: ctx, loader: l, base: base, cache: map[string]*layout.Image{}}
+func newImageLoader(ctx context.Context, l core.ResourceLoader, base string, warn func(string)) *imageLoader {
+	return &imageLoader{ctx: ctx, loader: l, base: base, cache: map[string]*layout.Image{}, warn: warn}
 }
-
-var errSVG = errors.New("SVG images are not supported yet")
 
 func (il *imageLoader) load(src string) (*layout.Image, error) {
 	u := core.ResolveURL(il.base, src)
@@ -40,14 +40,24 @@ func (il *imageLoader) load(src string) (*layout.Image, error) {
 	if err != nil {
 		return nil, err
 	}
+	if img.SVG != nil && il.warn != nil {
+		for _, w := range img.SVG.Warnings {
+			il.warn("layout: " + w)
+		}
+	}
 	il.cache[u] = img
 	return img, nil
 }
 
 func decodeImage(data []byte) (*layout.Image, error) {
 	trim := bytes.TrimSpace(data)
-	if bytes.HasPrefix(trim, []byte("<svg")) || bytes.HasPrefix(trim, []byte("<?xml")) {
-		return nil, errSVG
+	if bytes.HasPrefix(trim, []byte("<svg")) || bytes.HasPrefix(trim, []byte("<?xml")) || bytes.HasPrefix(trim, []byte("<!--")) ||
+		bytes.HasPrefix(trim, []byte("<!DOCTYPE svg")) {
+		d, err := svg.Parse(trim)
+		if err != nil {
+			return nil, err
+		}
+		return &layout.Image{SVG: d, Width: int(d.Width), Height: int(d.Height)}, nil
 	}
 	cfg, format, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil {

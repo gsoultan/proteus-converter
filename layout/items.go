@@ -3,6 +3,7 @@ package layout
 import (
 	"github.com/gsoultan/proteus-converter/css"
 	"github.com/gsoultan/proteus-converter/fonts"
+	"github.com/gsoultan/proteus-converter/svg"
 )
 
 // Item is a positioned display item. Coordinates are in points; X is from
@@ -38,10 +39,43 @@ type TextItem struct {
 	LetterSpacing float64
 }
 
-// ImageItem draws an image scaled to W x H with its top-left corner at X, Y.
+// Clip is a rounded-rectangle clip region; a zero width means no clipping.
+type Clip struct {
+	X, Y, W, H float64
+	Radius     float64
+}
+
+// Active reports whether the clip is set.
+func (c Clip) Active() bool { return c.W > 0 && c.H > 0 }
+
+// ImageItem draws an image scaled to W x H with its top-left corner at X, Y,
+// optionally clipped (rounded corners, background painting area, object-fit).
 type ImageItem struct {
 	X, Y, W, H float64
 	Image      *Image
+	Clip       Clip
+}
+
+// PathStyle is how a PathItem is painted.
+type PathStyle struct {
+	Fill        *css.Color
+	EvenOdd     bool
+	Stroke      *css.Color
+	StrokeWidth float64 // in user units
+	LineCap     int     // 0 butt, 1 round, 2 square
+	LineJoin    int     // 0 miter, 1 round, 2 bevel
+	MiterLimit  float64
+	Dash        []float64
+}
+
+// PathItem fills and/or strokes a vector path given in user units; M maps
+// user units to layout coordinates. Top is the y used to choose its page.
+type PathItem struct {
+	M     svg.Matrix
+	Segs  []svg.Seg
+	Style PathStyle
+	Clip  Clip
+	Top   float64
 }
 
 // EllipseItem fills (Stroke == 0) or strokes an ellipse inscribed in X, Y, W, H.
@@ -71,10 +105,22 @@ type BookmarkItem struct {
 	Y     float64
 }
 
-func (r *RectItem) translate(dx, dy float64)    { r.X += dx; r.Y += dy }
-func (l *LineItem) translate(dx, dy float64)    { l.X1 += dx; l.X2 += dx; l.Y1 += dy; l.Y2 += dy }
-func (t *TextItem) translate(dx, dy float64)    { t.X += dx; t.Baseline += dy }
-func (i *ImageItem) translate(dx, dy float64)   { i.X += dx; i.Y += dy }
+func (r *RectItem) translate(dx, dy float64) { r.X += dx; r.Y += dy }
+func (l *LineItem) translate(dx, dy float64) { l.X1 += dx; l.X2 += dx; l.Y1 += dy; l.Y2 += dy }
+func (t *TextItem) translate(dx, dy float64) { t.X += dx; t.Baseline += dy }
+func (i *ImageItem) translate(dx, dy float64) {
+	i.X += dx
+	i.Y += dy
+	i.Clip.X += dx
+	i.Clip.Y += dy
+}
+func (p *PathItem) translate(dx, dy float64) {
+	p.M[4] += dx
+	p.M[5] += dy
+	p.Top += dy
+	p.Clip.X += dx
+	p.Clip.Y += dy
+}
 func (e *EllipseItem) translate(dx, dy float64) { e.X += dx; e.Y += dy }
 func (l *LinkItem) translate(dx, dy float64)    { l.X += dx; l.Y += dy }
 func (a *AnchorItem) translate(_, dy float64)   { a.Y += dy }

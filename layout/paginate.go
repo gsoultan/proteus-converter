@@ -70,10 +70,34 @@ func (e *Engine) Paginate(items []Item) []*Page {
 			c.Baseline -= float64(p) * h
 			get(p).Items = append(get(p).Items, &c)
 		case *ImageItem:
-			c := *v
-			p := idx(v.Y)
-			c.Y -= float64(p) * h
-			get(p).Items = append(get(p).Items, &c)
+			y0, y1 := v.Y, v.Y+v.H
+			if v.Clip.Active() {
+				y0, y1 = math.Max(y0, v.Clip.Y), math.Min(y1, v.Clip.Y+v.Clip.H)
+			}
+			if y1 <= y0 {
+				return
+			}
+			for _, p := range spanPages(y0, y1, idx) {
+				c := *v
+				c.Y -= float64(p) * h
+				c.Clip = pageClip(v.Clip, p, h, y0, y1, idx)
+				get(p).Items = append(get(p).Items, &c)
+			}
+		case *PathItem:
+			y0, y1 := pathExtent(v)
+			if v.Clip.Active() {
+				y0, y1 = math.Max(y0, v.Clip.Y), math.Min(y1, v.Clip.Y+v.Clip.H)
+			}
+			if y1 < y0 {
+				y0, y1 = v.Top, v.Top
+			}
+			for _, p := range spanPages(y0, y1, idx) {
+				c := *v
+				c.M[5] -= float64(p) * h
+				c.Top -= float64(p) * h
+				c.Clip = pageClip(v.Clip, p, h, y0, y1, idx)
+				get(p).Items = append(get(p).Items, &c)
+			}
 		case *EllipseItem:
 			c := *v
 			p := idx(v.Y)
@@ -108,5 +132,78 @@ func (e *Engine) Paginate(items []Item) []*Page {
 	if len(pages) == 0 {
 		pages = append(pages, &Page{})
 	}
+	// position: fixed boxes repeat on every page, on top of the flow
+	if len(e.fixedItems) > 0 {
+		for _, pg := range pages {
+			flow := pg.Items
+			tmp := &Page{}
+			pages0 := pages
+			pages = []*Page{tmp}
+			for _, it := range copyItems(e.fixedItems, 0, 0) {
+				add(it)
+			}
+			pages = pages0
+			pg.Items = append(flow, tmp.Items...)
+		}
+	}
 	return pages
+}
+
+// spanPages returns the pages a vertical extent [y0, y1] touches.
+func spanPages(y0, y1 float64, idx func(float64) int) []int {
+	p0, p1 := idx(y0), idx(y1-eps)
+	if p1 < p0 {
+		p1 = p0
+	}
+	out := make([]int, 0, p1-p0+1)
+	for p := p0; p <= p1; p++ {
+		out = append(out, p)
+	}
+	return out
+}
+
+// pageClip moves clip onto page p and, when the content spans several pages,
+// limits it to that page.
+func pageClip(clip Clip, p int, h, y0, y1 float64, idx func(float64) int) Clip {
+	off := float64(p) * h
+	if clip.Active() {
+		clip.Y -= off
+	}
+	if idx(y0) == idx(y1-eps) {
+		return clip
+	}
+	page := Clip{X: -1e5, Y: 0, W: 2e5, H: h}
+	if !clip.Active() {
+		return page
+	}
+	top := math.Max(clip.Y, 0)
+	bot := math.Min(clip.Y+clip.H, h)
+	if bot <= top {
+		return Clip{X: clip.X, Y: 0, W: clip.W, H: eps}
+	}
+	return Clip{X: clip.X, Y: top, W: clip.W, H: bot - top}
+}
+
+// pathExtent returns the vertical extent of a path in layout coordinates.
+func pathExtent(p *PathItem) (float64, float64) {
+	y0, y1 := math.Inf(1), math.Inf(-1)
+	pad := 0.0
+	if p.Style.Stroke != nil {
+		pad = p.Style.StrokeWidth * p.M.Scale() / 2
+	}
+	for _, s := range p.Segs {
+		n := 0
+		switch s.Op {
+		case 'M', 'L':
+			n = 1
+		case 'C':
+			n = 3
+		}
+		for k := range n {
+			_, y := p.M.Apply(s.Pts[2*k], s.Pts[2*k+1])
+			y0 = math.Min(y0, y-pad)
+			y1 = math.Max(y1, y+pad)
+		}
+	}
+	return y0, y1
 }

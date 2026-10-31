@@ -6,6 +6,7 @@ package layout
 
 import (
 	"github.com/gsoultan/proteus-converter/css"
+	"github.com/gsoultan/proteus-converter/svg"
 	"golang.org/x/net/html"
 )
 
@@ -35,9 +36,10 @@ type Box struct {
 	Node     *html.Node // nil for anonymous and generated boxes
 	Children []*Box
 
-	Text  string // KindText
-	Image *Image // KindImage
-	Alt   string
+	Text    string // KindText
+	Image   *Image // KindImage
+	BgImage *Image // background-image
+	Alt     string
 
 	Marker *Box   // list-item marker content (inline box)
 	Symbol string // "disc", "circle" or "square" for markers painted as shapes
@@ -62,12 +64,13 @@ type Decoration struct {
 	Style string
 }
 
-// Image is a decoded raster image ready for embedding.
+// Image is a decoded raster image ready for embedding, or a vector SVG image.
 type Image struct {
 	Data   []byte // PNG or JPEG file bytes
 	JPEG   bool
-	Width  int // pixels
+	Width  int // pixels (CSS px for SVG; 0 when the SVG has no intrinsic size)
 	Height int
+	SVG    *svg.Document // set for SVG images; Data is then unused
 }
 
 // ImageLoader fetches and decodes an image referenced by src.
@@ -84,3 +87,8 @@ func (b *Box) isBlockLevel() bool {
 }
 
 func (b *Box) isInlineLevel() bool { return !b.isBlockLevel() }
+
+// outOfFlow reports whether the box is floated or absolutely positioned.
+func (b *Box) outOfFlow() bool {
+	return b.Kind != KindText && b.Style != nil && b.Style.IsOutOfFlow() && b.Node != nil
+}

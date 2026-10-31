@@ -147,16 +147,22 @@ func init() {
 		return ok
 	}, func(d, s *Style) { d.BackgroundColor = s.BackgroundColor })
 	def("background-image", false, func(s, _ *Style, v string, _ *computeCtx) bool {
+		s.BackgroundImage, s.BackgroundGradient = "", ""
 		if strings.EqualFold(v, "none") {
-			s.BackgroundImage = ""
 			return true
 		}
-		u, ok := URLValue(strings.TrimSpace(v))
-		if ok {
+		// only the first layer is painted
+		layers := SplitCommas(strings.TrimSpace(v))
+		first := strings.TrimSpace(layers[0])
+		if fn, _, ok := Function(first); ok && strings.HasSuffix(fn, "linear-gradient") {
+			s.BackgroundGradient = first
+			return true
+		}
+		if u, ok := URLValue(first); ok {
 			s.BackgroundImage = u
 		}
 		return true
-	}, func(d, s *Style) { d.BackgroundImage = s.BackgroundImage })
+	}, func(d, s *Style) { d.BackgroundImage, d.BackgroundGradient = s.BackgroundImage, s.BackgroundGradient })
 	def("opacity", false, func(s, _ *Style, v string, _ *computeCtx) bool {
 		v = strings.TrimSpace(v)
 		var f float64
@@ -495,6 +501,7 @@ func init() {
 	a, cp = keywordProp(func(s *Style) *string { return &s.CounterIncrement })
 	def("counter-increment", false, func(s, _ *Style, v string, _ *computeCtx) bool { s.CounterIncrement = v; return true }, cp)
 	_ = a
+	registerLayoutProps()
 }
 
 func spacingProp(get func(*Style) *float64) func(s, p *Style, v string, c *computeCtx) bool {

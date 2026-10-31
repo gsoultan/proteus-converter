@@ -9,10 +9,7 @@ import (
 // replacedSize returns the content-box size of an image or form control.
 func (l *layouter) replacedSize(b *Box, cbw float64) (w, h float64) {
 	s := b.Style
-	iw, ih := 13*0.75, 13*0.75
-	if b.Image != nil {
-		iw, ih = float64(b.Image.Width)*0.75, float64(b.Image.Height)*0.75
-	}
+	iw, ih, ratio, hasW, hasH := intrinsicSize(b)
 	e := l.hEdges(s, cbw)
 	extraW := e.pl + e.pr + e.bl + e.br
 	extraH := s.Padding[css.Top].Resolve(cbw, 0) + s.Padding[css.Bottom].Resolve(cbw, 0) + s.BorderUsed(css.Top) + s.BorderUsed(css.Bottom)
@@ -30,20 +27,71 @@ func (l *layouter) replacedSize(b *Box, cbw float64) (w, h float64) {
 	if hSet {
 		h = content(s.Height.Resolve(0, 0), extraH)
 	}
-	ratio := 1.0
-	if iw > 0 {
+	if ratio <= 0 && hasW && hasH && iw > 0 {
 		ratio = ih / iw
 	}
 	switch {
 	case wSet && hSet:
 	case wSet:
-		h = w * ratio
+		if ratio > 0 {
+			h = w * ratio
+		} else if hasH {
+			h = ih
+		} else {
+			h = 150 * 0.75
+		}
 	case hSet:
 		if ratio > 0 {
 			w = h / ratio
+		} else if hasW {
+			w = iw
+		} else {
+			w = 300 * 0.75
 		}
-	default:
+	case hasW && hasH:
 		w, h = iw, ih
+	case hasW && ratio > 0:
+		w, h = iw, iw*ratio
+	case hasH && ratio > 0:
+		w, h = ih/ratio, ih
+	case ratio > 0:
+		// no intrinsic size: fill the available width (as browsers do for SVG with only a viewBox)
+		w = math.Max(cbw-e.ml-e.mr-extraW, 0)
+		if cbw <= 0 {
+			w = 300 * 0.75
+		}
+		h = w * ratio
+	default:
+		w, h = 300*0.75, 150*0.75
+		if hasW {
+			w = iw
+		}
+		if hasH {
+			h = ih
+		}
+	}
+	if ratio <= 0 {
+		ratio = 1
+		if w > 0 {
+			ratio = h / w
+		}
+	}
+	fw, fwOK := l.e.forcedW[b]
+	fh, fhOK := l.e.forcedH[b]
+	if fwOK {
+		w = math.Max(fw-extraW, 0)
+		if !fhOK && !hSet {
+			h = w * ratio
+		}
+	}
+	if fhOK {
+		h = math.Max(fh-extraH, 0)
+		if !fwOK && !wSet {
+			w = h / ratio
+		}
+	}
+	if fwOK || fhOK {
+		return w, h
 	}
 	if !s.MaxWidth.Auto {
 		if mw := content(s.MaxWidth.Resolve(cbw, 0), extraW); w > mw {
@@ -89,15 +137,11 @@ func (l *layouter) layoutAtomic(b *Box, avail float64) *atomicBox {
 		bx, by := e.ml, mt
 		bw, bh := e.bl+e.pl+w+e.pr+e.br, bt+pt+h+pb+bb
 		sub := l.sub()
-		if !s.BackgroundColor.IsTransparent() {
-			sub.emit(&RectItem{X: bx, Y: by, W: bw, H: bh, Color: s.BackgroundColor})
-		}
+		sub.emitBackground(b, bx, by, bw, bh)
 		sub.emitBorders(s, bx, by, bw, bh, [4]bool{true, true, true, true})
 		cx, cy := bx+e.bl+e.pl, by+bt+pt
 		if b.Kind == KindImage && s.Visibility == "visible" {
-			img := &ImageItem{X: cx, Y: cy, W: w, H: h, Image: b.Image}
-			sub.emit(img)
-			a.image = img
+			a.image = sub.emitReplaced(b, cx, cy, w, h, innerRadius(s, bw, math.Max(e.bl+e.pl, bt+pt)))
 		} else if b.Kind == KindCheckbox {
 			sub.checkbox(b, cx, cy, w, h)
 		}
@@ -193,8 +237,35 @@ func (l *layouter) computeIntrinsic(b *Box) (float64, float64) {
 	switch {
 	case b.Kind == KindTable:
 		mn, mx = l.tableIntrinsic(b)
-	case len(b.Children) > 0 && b.Children[0].isBlockLevel():
+	case (s.IsFlex() && (s.FlexDirection == "row" || s.FlexDirection == "row-reverse")) && hasBlockChild(b):
+		gap := absPart(s.ColumnGap)
+		n := 0
 		for _, c := range b.Children {
+			if c.outOfFlow() {
+				continue
+			}
+			cmn, cmx := l.intrinsicWidths(c)
+			if s.FlexWrap == "nowrap" {
+				mn += cmn
+			} else {
+				mn = math.Max(mn, cmn)
+			}
+			mx += cmx
+			n++
+		}
+		if n > 1 {
+			mx += gap * float64(n-1)
+			if s.FlexWrap == "nowrap" {
+				mn += gap * float64(n-1)
+			}
+		}
+	case s.IsGrid() && hasBlockChild(b):
+		mn, mx = l.gridIntrinsic(b)
+	case hasBlockChild(b):
+		for _, c := range b.Children {
+			if c.outOfFlow() && c.Style.IsAbsolute() {
+				continue
+			}
 			cmn, cmx := l.intrinsicWidths(c)
 			mn = math.Max(mn, cmn)
 			mx = math.Max(mx, cmx)
@@ -224,6 +295,12 @@ func fragIntrinsic(frags []*frag) (mn, mx float64) {
 	trailing := 0.0
 	for _, f := range frags {
 		switch f.kind {
+		case fFloat:
+			mn = math.Max(mn, f.atomic.w)
+			line += f.atomic.w
+			continue
+		case fAbs:
+			continue
 		case fBreak:
 			mx = math.Max(mx, line-trailing)
 			mn = math.Max(mn, word)

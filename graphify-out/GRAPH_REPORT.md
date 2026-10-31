@@ -58,6 +58,20 @@
 ## Import Cycles
 - None detected.
 
+## Pending regeneration (manual note, 2026-10-31)
+graphify was not available when floats, positioning, flexbox, grid, SVG and images landed, so
+graph.json and the communities above predate them. Run `graphify update .` to refresh. New nodes
+to expect:
+- package `svg` (svg.go, geometry.go): Document, Shape, Seg, Matrix, Parse, FromNode, ParsePath
+- layout/float.go: floatCtx, floatBox, posCtx, absBox, placeFloat, layoutAbsolute, absItems
+- layout/flex.go: layoutFlex, flexItem, resolveFlexible, flexMainPositions
+- layout/grid.go: layoutGrid, gridItem, gridTrack, sizeTracks, resolveLines, gridIntrinsic
+- layout/background.go, layout/images.go: emitBackground, emitGradient, emitReplaced, emitSVG
+- layout/items.go: PathItem, PathStyle, Clip; render/gpdf_ops.go: GPDF.Path, GPDF.Image
+- css/layoutprops.go: TrackList, GridLine, BackgroundSize, expandLayoutShorthand
+Expected edges: layouter -> floatCtx/posCtx/layoutFlex/layoutGrid; Painter -> svg.Matrix;
+Box -> svg.Document (Image.SVG) and BgImage.
+
 ## Communities (19 total, 2 thin omitted)
 
 ### Community 0 - "GPDF"

@@ -97,3 +97,37 @@ func TestMonospaceQuirkAndHeadings(t *testing.T) {
 		t.Errorf("monospace,monospace should be 16px: %v", c.FontSize)
 	}
 }
+
+func TestLayoutProperties(t *testing.T) {
+	doc, styles := computeDoc(t, `<div id=f style="display:flex;flex:1 0 20px;gap:4px 8px;justify-content:space-between">
+<span id=i>x</span></div>
+<div id=g style="display:grid;grid-template-columns:100px repeat(2, minmax(10px, 1fr)) auto;grid-area:2 / 1 / span 2 / 3"></div>
+<div id=b style="background:url(a.png) no-repeat right 10px top / cover #fff;position:absolute;inset:1px 2px"></div>`, "")
+	f := styles[find(doc, "f")].Style
+	if f.FlexGrow != 1 || f.FlexShrink != 0 || f.FlexBasis.Pt != 15 || f.RowGap.Pt != 3 || f.ColumnGap.Pt != 6 || f.JustifyContent != "space-between" {
+		t.Errorf("flex: %+v %+v %+v %+v %+v", f.FlexGrow, f.FlexShrink, f.FlexBasis, f.RowGap, f.ColumnGap)
+	}
+	if i := styles[find(doc, "i")].Style; i.Display != "block" {
+		t.Errorf("flex item display = %q, want block", i.Display)
+	}
+	g := styles[find(doc, "g")].Style
+	if n := len(g.GridTemplateColumns.Tracks); n != 4 {
+		t.Fatalf("tracks = %d", n)
+	}
+	if tr := g.GridTemplateColumns.Tracks[1]; tr.Min.Kind != TrackLength || tr.Max.Kind != TrackFr || tr.Max.Fr != 1 {
+		t.Errorf("minmax track = %+v", tr)
+	}
+	if p := g.GridPlacement; p[0].Line != 2 || p[1].Line != 1 || p[2].Span != 2 || p[3].Line != 3 {
+		t.Errorf("placement = %+v", p)
+	}
+	b := styles[find(doc, "b")].Style
+	if b.BackgroundImage != "a.png" || b.BackgroundSize.Mode != "cover" || b.BackgroundRepeat[0] != "no-repeat" {
+		t.Errorf("background = %q %+v %v", b.BackgroundImage, b.BackgroundSize, b.BackgroundRepeat)
+	}
+	if bp := b.BackgroundPosition; bp[0].Pct != 100 || bp[0].Pt != -7.5 || bp[1].Pct != 0 {
+		t.Errorf("background-position = %+v", bp)
+	}
+	if b.BackgroundColor.R != 1 || b.Inset[0].Pt != 0.75 || b.Inset[1].Pt != 1.5 || b.Inset[3].Pt != 1.5 {
+		t.Errorf("color/inset = %+v %+v", b.BackgroundColor, b.Inset)
+	}
+}

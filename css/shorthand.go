@@ -27,7 +27,8 @@ func init() {
 	}
 	shorthandLonghands["border"] = all
 	shorthandLonghands["font"] = []string{"font-style", "font-variant", "font-weight", "font-size", "line-height", "font-family"}
-	shorthandLonghands["background"] = []string{"background-color", "background-image"}
+	shorthandLonghands["background"] = []string{"background-color", "background-image", "background-size",
+		"background-position", "background-repeat", "background-origin", "background-clip"}
 	shorthandLonghands["list-style"] = []string{"list-style-type", "list-style-position", "list-style-image"}
 	shorthandLonghands["text-decoration"] = []string{"text-decoration-line", "text-decoration-style", "text-decoration-color"}
 	shorthandLonghands["overflow"] = []string{"overflow-x", "overflow-y"}
@@ -199,20 +200,7 @@ func expandShorthand(name, value string) map[string]string {
 	case "font":
 		return expandFont(toks, value)
 	case "background":
-		m := map[string]string{"background-color": "transparent", "background-image": "none"}
-		for _, t := range toks {
-			if t == "," || t == "/" {
-				continue
-			}
-			if u, ok := URLValue(t); ok && strings.HasPrefix(strings.ToLower(t), "url(") {
-				m["background-image"] = "url(\"" + u + "\")"
-				continue
-			}
-			if _, ok := ParseColor(t, Black); ok {
-				m["background-color"] = t
-			}
-		}
-		return m
+		return expandBackground(value)
 	case "list-style":
 		m := map[string]string{"list-style-type": "disc", "list-style-position": "outside", "list-style-image": "none"}
 		nones := 0
@@ -259,7 +247,73 @@ func expandShorthand(name, value string) map[string]string {
 		}
 		return m
 	}
-	return nil
+	return expandLayoutShorthand(name, toks, value)
+}
+
+// expandBackground expands the background shorthand (first layer only).
+func expandBackground(value string) map[string]string {
+	m := map[string]string{"background-color": "transparent", "background-image": "none", "background-size": "auto",
+		"background-position": "0% 0%", "background-repeat": "repeat", "background-origin": "padding-box",
+		"background-clip": "border-box"}
+	layers := SplitCommas(value)
+	// the color may only appear in the last layer; images come from the first
+	last := SplitValue(layers[len(layers)-1])
+	for _, t := range last {
+		if _, ok := ParseColor(t, Black); ok && !strings.Contains(t, "(") || isColorFunc(t) {
+			m["background-color"] = t
+		}
+	}
+	var pos, size, rep []string
+	inSize := false
+	boxes := 0
+	for _, t := range SplitValue(layers[0]) {
+		lt := strings.ToLower(t)
+		switch {
+		case t == "/":
+			inSize = true
+			continue
+		case strings.HasPrefix(lt, "url(") || strings.Contains(lt, "gradient("):
+			m["background-image"] = t
+		case lt == "repeat" || lt == "no-repeat" || lt == "repeat-x" || lt == "repeat-y" || lt == "space" || lt == "round":
+			rep = append(rep, lt)
+		case lt == "border-box" || lt == "padding-box" || lt == "content-box":
+			if boxes == 0 {
+				m["background-origin"] = lt
+				m["background-clip"] = lt
+			} else {
+				m["background-clip"] = lt
+			}
+			boxes++
+		case inSize && (lt == "cover" || lt == "contain" || lt == "auto" || startsNumeric(lt) || strings.HasPrefix(lt, "calc(")):
+			size = append(size, t)
+		case lt == "left" || lt == "right" || lt == "top" || lt == "bottom" || lt == "center" || startsNumeric(lt) || strings.HasPrefix(lt, "calc("):
+			inSize = false
+			pos = append(pos, t)
+		}
+	}
+	if len(pos) > 0 {
+		m["background-position"] = strings.Join(pos, " ")
+	}
+	if len(size) > 0 {
+		m["background-size"] = strings.Join(size, " ")
+	}
+	if len(rep) > 0 {
+		m["background-repeat"] = strings.Join(rep, " ")
+	}
+	return m
+}
+
+func isColorFunc(t string) bool {
+	fn, _, ok := Function(t)
+	if !ok {
+		return false
+	}
+	switch fn {
+	case "rgb", "rgba", "hsl", "hsla", "hwb", "lab", "lch", "oklab", "oklch", "color":
+		_, ok := ParseColor(t, Black)
+		return ok
+	}
+	return false
 }
 
 func startsNumeric(s string) bool {
