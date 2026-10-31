@@ -19,4 +19,8 @@ Public API lives in proteus.go (aliases of core): Convert, ConvertBytes, Convert
 ConvertFile, Register, Lookup, FormatForPath, With* options. Patterns: Converter strategy,
 Registry factory, functional options, Painter adapter.
 
+Accuracy tooling: accuracy/run.sh with internal/tools/pixdiff (raw and -near ink diff),
+internal/tools/textdiff (word positions vs Chromium) and internal/tools/mdhtml (Markdown to the
+HTML Chromium renders). See accuracy_and_blink_quirks for thresholds and current numbers.
+
 Toolchain: go 1.26 (GOTOOLCHAIN=auto). Deps: gpdf, goldmark, x/net, cascadia.

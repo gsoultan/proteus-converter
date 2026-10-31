@@ -42,6 +42,10 @@ type TrackList struct {
 // IsNone reports whether no explicit tracks are defined.
 func (t TrackList) IsNone() bool { return len(t.Tracks) == 0 && len(t.AutoRepeat) == 0 }
 
+// MaxGridTracks clamps grid line numbers, spans and repeat() counts, as
+// browsers do, so a stray "span 99999" cannot allocate huge track lists.
+const MaxGridTracks = 1000
+
 // GridLine is a computed grid-row-start (and friends) value.
 type GridLine struct {
 	Line int    // explicit line number (1-based; negative counts from the end); 0 = auto
@@ -179,7 +183,7 @@ func parseTrackList(v string, c *computeCtx) (TrackList, bool) {
 				if err != nil || n < 1 {
 					return TrackList{}, false
 				}
-				n = min(n, 1000)
+				n = min(n, MaxGridTracks)
 				for range n {
 					tl.Tracks = append(tl.Tracks, inner...)
 				}
@@ -218,9 +222,9 @@ func parseGridLine(v string) (GridLine, bool) {
 				if n < 0 {
 					return GridLine{}, false
 				}
-				g.Span = n
+				g.Span = min(n, MaxGridTracks)
 			} else {
-				g.Line = n
+				g.Line = max(-MaxGridTracks, min(n, MaxGridTracks))
 			}
 			continue
 		}

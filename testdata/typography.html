@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Typography</title>
+<style>
+  @page { size: A4; margin: 15mm; }
+  body { font-family: "Liberation Serif", serif; font-size: 11pt; line-height: 1.4; color: #222; }
+  h1, h2, h3, h4, h5, h6 { font-family: "Liberation Sans", sans-serif; }
+  .center { text-align: center; }
+  .right { text-align: right; }
+  .justify { text-align: justify; }
+  .caps { text-transform: uppercase; letter-spacing: 2px; font-size: 9pt; }
+  .cap1 { text-transform: capitalize; }
+  .wide { word-spacing: 6px; }
+  .indent { text-indent: 2em; }
+  .tight { line-height: 1.1; }
+  .loose { line-height: 2; }
+  pre { background: #f4f4f4; padding: 6px; font-size: 9pt; }
+  blockquote { border-left: 3px solid #999; margin-left: 0; padding-left: 12px; color: #555; }
+  .nowrap { white-space: nowrap; }
+  .preline { white-space: pre-line; }
+  small { color: #666; }
+  mark { background: #ff0; }
+</style>
+</head>
+<body>
+<h1>Heading level one</h1>
+<h2>Heading level two</h2>
+<h3>Heading level three</h3>
+<h4>Heading level four</h4>
+<h5>Heading level five</h5>
+<h6>Heading level six</h6>
+
+<p>Plain paragraph with <b>bold</b>, <strong>strong</strong>, <i>italic</i>, <em>emphasis</em>,
+<u>underline</u>, <s>strike</s>, <del>deleted</del>, <ins>inserted</ins>, <small>small text</small>,
+<mark>highlighted</mark>, <code>code</code>, <kbd>Ctrl+C</kbd>, <var>x</var>, H<sub>2</sub>O and
+E = mc<sup>2</sup>. A <a href="https://example.com/">hyperlink</a> sits in the middle of the sentence.</p>
+
+<p class="justify">Justified text spreads the spaces between words so that both edges of every line except the
+last are flush with the margins. This paragraph is long enough to need several lines, which lets the
+comparison check that the extra space is distributed exactly like the reference renderer does it.</p>
+
+<p class="center">Centered paragraph text that also wraps across more than a single line of the page width so that
+the centering of each line is visible.</p>
+
+<p class="right">Right aligned paragraph.<br>With a forced line break.</p>
+
+<p class="caps">Uppercase transformed text with letter spacing</p>
+<p class="cap1">capitalized words in this sentence</p>
+<p class="wide">Word spacing makes the gaps between these words wider than usual.</p>
+<p class="indent">The first line of this paragraph is indented by two em, and the following lines wrap back to the
+left edge of the content box as usual for an indented paragraph.</p>
+<p class="tight">Tight line height paragraph. Tight line height paragraph. Tight line height paragraph. Tight
+line height paragraph. Tight line height paragraph.</p>
+<p class="loose">Loose line height paragraph. Loose line height paragraph. Loose line height paragraph. Loose
+line height paragraph. Loose line height paragraph.</p>
+
+<blockquote><p>A blockquote holds quoted text, indented and set off by a rule on the left side.</p></blockquote>
+
+<pre>preformatted   text keeps    spaces
+    and indentation
+	and tabs</pre>
+
+<p class="preline">pre-line collapses   spaces
+but keeps
+line breaks</p>
+
+<p><span class="nowrap">This span must not wrap even though it is rather long</span> and the rest wraps normally
+after it across the line.</p>
+
+<p style="font-size:8pt">8pt text. <span style="font-size:14pt">14pt text.</span> <span style="font-size:20pt">20pt.</span></p>
+<p style="font-family:'Liberation Mono',monospace">Monospaced paragraph text 0123456789.</p>
+<p style="font-weight:bold;font-style:italic">Bold italic paragraph.</p>
+<hr>
+<p style="color:#c00">Red text</p><p style="color:rgb(0,128,0)">Green text</p><p style="color:hsl(240,100%,40%)">Blue text</p>
+</body>
+</html>

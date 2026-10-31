@@ -98,7 +98,8 @@ func (f *Face) Has(r rune) bool {
 }
 
 // Width returns the advance width of s at size points, matching how gpdf
-// positions the glyphs (no kerning; ligatures applied).
+// positions the glyphs: ligatures and pair kerning applied (gpdf writes the
+// kerning as TJ adjustments, and Chromium kerns by default too).
 func (f *Face) Width(s string, size float64) float64 {
 	if s == "" {
 		return 0
@@ -110,19 +111,7 @@ func (f *Face) Width(s string, size float64) float64 {
 	if err != nil || t == nil {
 		return 0
 	}
-	w := t.TextWidth(s, size)
-	if upm := t.UnitsPerEm(); upm > 0 {
-		var prev rune = -1
-		kern := 0
-		for _, r := range s {
-			if prev >= 0 {
-				kern += t.Kern(prev, r)
-			}
-			prev = r
-		}
-		w -= float64(kern) * size / float64(upm)
-	}
-	return w
+	return t.TextWidth(s, size)
 }
 
 // Metrics returns em-relative vertical metrics.

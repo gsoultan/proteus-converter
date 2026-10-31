@@ -1,8 +1,10 @@
 package fonts
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
+	"io"
 	"unicode/utf16"
 )
 
@@ -29,19 +31,40 @@ type sfntInfo struct {
 
 var errNotSfnt = errors.New("fonts: not a TrueType font")
 
+// readAt reads n bytes at off, or returns nil when they are not all there.
+func readAt(r io.ReaderAt, size int64, off, n int64) []byte {
+	if off < 0 || n < 0 || off+n > size {
+		return nil
+	}
+	b := make([]byte, n)
+	if _, err := r.ReadAt(b, off); err != nil && !(errors.Is(err, io.EOF) && off+n == size) {
+		return nil
+	}
+	return b
+}
+
 // collectionOffsets returns the font offsets inside data (one entry for a plain font).
 func collectionOffsets(data []byte) ([]uint32, error) {
-	if len(data) < 12 {
+	return collectionOffsetsAt(bytes.NewReader(data), int64(len(data)))
+}
+
+func collectionOffsetsAt(r io.ReaderAt, size int64) ([]uint32, error) {
+	hdr := readAt(r, size, 0, 12)
+	if hdr == nil {
 		return nil, errNotSfnt
 	}
-	if string(data[:4]) == "ttcf" {
-		n := binary.BigEndian.Uint32(data[8:12])
-		if n > 256 || len(data) < 12+int(n)*4 {
+	if string(hdr[:4]) == "ttcf" {
+		n := binary.BigEndian.Uint32(hdr[8:12])
+		if n > 256 {
+			return nil, errNotSfnt
+		}
+		dir := readAt(r, size, 12, int64(n)*4)
+		if dir == nil {
 			return nil, errNotSfnt
 		}
 		out := make([]uint32, n)
 		for i := range out {
-			out[i] = binary.BigEndian.Uint32(data[12+i*4:])
+			out[i] = binary.BigEndian.Uint32(dir[i*4:])
 		}
 		return out, nil
 	}
@@ -49,30 +72,48 @@ func collectionOffsets(data []byte) ([]uint32, error) {
 }
 
 func parseSfntInfo(data []byte, off uint32) (*sfntInfo, error) {
-	if int(off)+12 > len(data) {
+	return parseSfntInfoAt(bytes.NewReader(data), int64(len(data)), off)
+}
+
+// parseSfntInfoAt reads only the table directory and the small tables it
+// needs (head, hhea, OS/2, post header, name), so scanning a font directory
+// does not load every glyph outline into memory.
+func parseSfntInfoAt(r io.ReaderAt, size int64, off uint32) (*sfntInfo, error) {
+	hdr := readAt(r, size, int64(off), 12)
+	if hdr == nil {
 		return nil, errNotSfnt
 	}
-	tag := binary.BigEndian.Uint32(data[off:])
+	tag := binary.BigEndian.Uint32(hdr)
 	if tag != 0x00010000 && tag != 0x74727565 && tag != 0x4F54544F { // 1.0, 'true', 'OTTO'
 		return nil, errNotSfnt
 	}
-	numTables := int(binary.BigEndian.Uint16(data[off+4:]))
+	numTables := int64(binary.BigEndian.Uint16(hdr[4:]))
+	recs := readAt(r, size, int64(off)+12, numTables*16)
+	if recs == nil {
+		return nil, errNotSfnt
+	}
+	// at most this many bytes are read from each table
+	want := map[string]int64{"head": 54, "hhea": 36, "OS/2": 96, "post": 32, "name": 1 << 20}
 	tables := map[string][]byte{}
+	hasGlyf := false
 	for i := range numTables {
-		rec := int(off) + 12 + i*16
-		if rec+16 > len(data) {
-			return nil, errNotSfnt
-		}
-		t := string(data[rec : rec+4])
-		o := binary.BigEndian.Uint32(data[rec+8:])
-		l := binary.BigEndian.Uint32(data[rec+12:])
-		if uint64(o)+uint64(l) > uint64(len(data)) {
+		rec := recs[i*16:]
+		t := string(rec[:4])
+		o := int64(binary.BigEndian.Uint32(rec[8:]))
+		l := int64(binary.BigEndian.Uint32(rec[12:]))
+		if o+l > size {
 			continue
 		}
-		tables[t] = data[o : o+l]
+		if t == "glyf" {
+			hasGlyf = true
+		}
+		if limit, ok := want[t]; ok {
+			if b := readAt(r, size, o, min(l, limit)); b != nil {
+				tables[t] = b
+			}
+		}
 	}
-	info := &sfntInfo{weight: 400}
-	_, info.hasGlyf = tables["glyf"]
+	info := &sfntInfo{weight: 400, hasGlyf: hasGlyf}
 	u16 := func(b []byte, i int) int {
 		if i+2 > len(b) {
 			return 0

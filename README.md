@@ -53,7 +53,7 @@ metrics, monospace sizing, list markers and collapsed table borders.
 Layout covers block flow with margin collapsing, inline text with wrapping,
 justification, `white-space`, `letter-spacing`, `text-transform`,
 decorations and super/subscripts, inline-block, images (PNG, JPEG, GIF),
-lists, tables (auto layout, colspan/rowspan, collapsed and separated borders,
+lists, tables (auto and fixed layout, percentage column widths, colspan/rowspan, collapsed and separated borders,
 repeated header rows), page breaks (`break-before/after/inside`,
 orphans/widows), links, named destinations and a PDF outline from headings.
 It also covers floats and `clear`, `position: relative/absolute/fixed` with
@@ -74,10 +74,40 @@ Remote fetching is off by default; enable it with `WithHTTP(true)` or supply a
 with `WithLocalFiles(false)`, and every resource is capped by
 `WithMaxResourceSize` (50 MB by default).
 
+## Robustness and resource use
+
+- A conversion never panics into the caller: an internal bug comes back as an
+  `*InternalError` (`errors.Is(err, ErrInternal)`) with the stack attached.
+- Runaway documents are bounded: `WithMaxPages` (10,000 by default,
+  `ErrTooManyPages`), images above 40 megapixels are skipped with a warning
+  (decompression bombs), grid line numbers and spans are clamped to 1,000, and
+  HTML nesting is limited to 512 levels by the parser.
+- `go test -fuzz` targets cover the whole pipeline (`FuzzConvertHTML`,
+  `FuzzConvertMarkdown`, `FuzzConvertCSS`) and the CSS parser (`css.FuzzParse`).
+- `TestNoLeaks` converts every fixture 35 times and checks goroutines and
+  retained heap do not grow; `TestConcurrentConversions` runs them in parallel
+  under `-race`. `BenchmarkConvert` reports time, allocations and PDF size per
+  fixture.
+- Scanning the system fonts reads only each font's header tables; outlines are
+  loaded on first use and shared between conversions.
+
 ## Accuracy gate
 
 `accuracy/run.sh` renders every file in `testdata/` with proteus and with
 headless Chromium (fonts pinned to Liberation via `accuracy/fonts.conf`), then
-compares the rasterised pages with `internal/tools/pixdiff`. CI fails when a
-page differs by more than 3% of its pixels; the current fixtures sit at about
-1.2–1.4%. Chromium is used only as the reference in CI.
+compares them two ways:
+
+- `internal/tools/pixdiff` rasterises both at 96 dpi. CI fails when a page
+  differs by more than 3% of its pixels, or by more than 0.5% once ink moved
+  by at most 1px is forgiven (that second figure removes anti-aliasing noise
+  and leaves missing, extra or misplaced content).
+- `internal/tools/textdiff` extracts every word with its position
+  (`pdftotext -bbox`), pairs the words of both PDFs and fails when fewer than
+  99% of Chromium's words are found or fewer than 98% sit within 2pt of
+  Chromium's position.
+
+The corpus covers typography, lists, tables, boxes and borders, floats,
+flexbox, grid, images, an invoice and two Markdown documents. Current results:
+every word of every fixture is found and placed within 1.5pt of Chromium
+(median 0.4pt); raw pixel mismatch is 0.2–3.0% per page and 0–0.31% beyond
+1px. Chromium is used only as the reference in CI.

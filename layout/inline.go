@@ -287,7 +287,9 @@ func (l *layouter) layoutInline(b *Box, x, y, width float64, pending *margins) i
 	mk := l.takeMarker()
 	var markerFrags []*frag
 	if mk != nil {
-		if mk.inside {
+		if mk.inside && mk.box.Symbol != "" {
+			frags = append([]*frag{l.insideSymbolFrag(mk.box)}, frags...)
+		} else if mk.inside {
 			frags = append(l.buildFrags(mk.box.Children, mk.box.Style, width, nil), frags...)
 		} else {
 			markerFrags = l.buildFrags(mk.box.Children, mk.box.Style, width, nil)
@@ -297,9 +299,9 @@ func (l *layouter) layoutInline(b *Box, x, y, width float64, pending *margins) i
 		if mk != nil {
 			l.marker = mk // give it to the next formatting context
 		}
-		return inlineResult{oof: l.placeOutOfFlow(frags, x, y+pending.value(), width)}
+		return inlineResult{oof: l.placeOutOfFlow(frags, x, l.afterMargin(y, *pending), width)}
 	}
-	y += pending.value()
+	y = l.afterMargin(y, *pending)
 	*pending = margins{}
 	indent := s.TextIndent.Resolve(width, 0)
 	var lines []*lineBox
@@ -500,25 +502,56 @@ func (l *layouter) takeMarker() *pendingMarker {
 
 // emitMarker draws an outside marker ending at the content edge x.
 // Symbol markers follow Blink's geometry (ListMarker::RelativeSymbolMarkerRect).
+// symbolMarker returns the items of a disc, circle or square list marker
+// drawn like Blink: a bullet (offset+1)/2 px wide, offset = 2/3 of the ascent,
+// relative to the bullet's left edge and the line's ascent top. It also
+// returns the ascent in pt and the bullet width.
+func (l *layouter) symbolMarker(mb *Box) (items []Item, asc, bw float64) {
+	s := mb.Style
+	m := l.e.styleMetrics(s)
+	ascPx := int(math.Round(m.ascent / 0.75))
+	offset := ascPx * 2 / 3
+	bw = float64((offset+1)/2) * 0.75
+	by := float64(3*(ascPx-offset)/2) * 0.75
+	switch mb.Symbol {
+	case "disc":
+		items = append(items, &EllipseItem{X: 0, Y: by, W: bw, H: bw, Color: s.Color})
+	case "circle":
+		items = append(items, &EllipseItem{X: 0.375, Y: by + 0.375, W: bw - 0.75, H: bw - 0.75, Color: s.Color, Stroke: 0.75})
+	case "square":
+		items = append(items, &RectItem{X: 0, Y: by, W: bw, H: bw, Color: s.Color})
+	}
+	return items, float64(ascPx) * 0.75, bw
+}
+
+// insideSymbolFrag returns an inside disc/circle/square marker as an atomic
+// inline. Measured against Chromium: the bullet starts 1px in and the text
+// follows after 1px + bullet + one font size.
+func (l *layouter) insideSymbolFrag(mb *Box) *frag {
+	items, asc, bw := l.symbolMarker(mb)
+	if mb.Style.Visibility != "visible" {
+		items = nil
+	}
+	for _, it := range items {
+		it.translate(0.75, 0)
+	}
+	w := 0.75 + bw + mb.Style.FontSize
+	a := &atomicBox{box: mb, items: items, w: w, h: asc, baseline: asc, valign: "baseline"}
+	return &frag{kind: fAtomic, style: mb.Style, atomic: a, width: w}
+}
+
 func (l *layouter) emitMarker(mb *Box, frags []*frag, x, baseline float64) {
 	if mb.Symbol != "" {
-		s := mb.Style
-		if s.Visibility != "visible" {
+		if mb.Style.Visibility != "visible" {
 			return
 		}
-		m := l.e.styleMetrics(s)
-		asc := int(math.Round(m.ascent / 0.75))
-		offset := asc * 2 / 3
-		bw := float64((offset+1)/2) * 0.75
+		items, asc, _ := l.symbolMarker(mb)
+		m := l.e.styleMetrics(mb.Style)
+		offset := int(math.Round(m.ascent/0.75)) * 2 / 3
 		bx := x - float64(offset+kMarkerPadding+1)*0.75 + 0.75
-		by := baseline - float64(asc)*0.75 + float64(3*(asc-offset)/2)*0.75
-		switch mb.Symbol {
-		case "disc":
-			l.emit(&EllipseItem{X: bx, Y: by, W: bw, H: bw, Color: s.Color})
-		case "circle":
-			l.emit(&EllipseItem{X: bx + 0.375, Y: by + 0.375, W: bw - 0.75, H: bw - 0.75, Color: s.Color, Stroke: 0.75})
-		case "square":
-			l.emit(&RectItem{X: bx, Y: by, W: bw, H: bw, Color: s.Color})
+		for _, it := range items {
+			it.translate(bx, baseline-asc)
+			l.emit(it)
 		}
 		return
 	}

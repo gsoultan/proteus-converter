@@ -12,6 +12,7 @@ type Engine struct {
 	Fonts      *fonts.Resolver
 	PageWidth  float64 // content width of a page, in points
 	PageHeight float64 // content height of a page, in points
+	MaxPages   int     // Paginate fails beyond this many pages; <= 0 means no limit
 	Warn       func(string)
 
 	metrics    map[*css.Style]styleMetrics
@@ -131,6 +132,18 @@ func (l *layouter) place(y, h float64) float64 {
 		return l.nextPageStart(y)
 	}
 	return y
+}
+
+// afterMargin returns where content starts after the collapsed margin m
+// below y. Like browsers, a margin that crosses into a new page is truncated
+// (CSS Fragmentation: margins adjoining an unforced break): the content then
+// starts at the top of that page instead of part way down it.
+func (l *layouter) afterMargin(y float64, m margins) float64 {
+	t := y + m.value()
+	if l.fragment && m.value() > 0 && y > eps && l.pageStart(t) > l.pageStart(y-eps) {
+		return l.pageStart(t)
+	}
+	return t
 }
 
 func isForcedBreak(v string) bool {

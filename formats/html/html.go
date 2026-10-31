@@ -25,7 +25,8 @@ func (*Converter) Format() core.Format { return core.FormatHTML }
 func (*Converter) Extensions() []string { return []string{"html", "htm", "xhtml"} }
 
 // Convert implements core.Converter.
-func (*Converter) Convert(ctx context.Context, src io.Reader, dst io.Writer, opts ...core.Option) error {
+func (*Converter) Convert(ctx context.Context, src io.Reader, dst io.Writer, opts ...core.Option) (err error) {
+	defer core.Recover(&err)
 	cfg := core.NewConfig(opts...)
 	doc, err := html.Parse(src)
 	if err != nil {

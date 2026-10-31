@@ -134,8 +134,8 @@ func (l *layouter) columnWidths(rows []*trow, ncols int, hs float64) (mn, mx []f
 }
 
 func (l *layouter) tableIntrinsic(t *Box) (float64, float64) {
-	s := t.Style
 	rows, ncols, _ := tableGrid(t)
+	s := t.Style // after tableGrid, which rewrites it for collapsed borders
 	hs, _ := tableSpacing(s)
 	mn, mx := l.columnWidths(rows, ncols, hs)
 	var smn, smx float64
@@ -155,22 +155,39 @@ func (l *layouter) tableIntrinsic(t *Box) (float64, float64) {
 }
 
 func (l *layouter) layoutTable(t *Box, x, y, cbw float64, pending margins, forced float64) blockResult {
-	s := t.Style
 	rows, ncols, captions := tableGrid(t)
+	s := t.Style // after tableGrid, which rewrites it for collapsed borders
 	hs, vs := tableSpacing(s)
-	collapse := s.BorderCollapse == "collapse"
 	e := l.hEdges(s, cbw)
 	bt, bb := s.BorderUsed(css.Top), s.BorderUsed(css.Bottom)
 	pt, pb := s.Padding[css.Top].Resolve(cbw, 0), s.Padding[css.Bottom].Resolve(cbw, 0)
-	if collapse {
+	if s.BorderCollapse == "collapse" {
 		e.pl, e.pr, pt, pb = 0, 0, 0, 0
 	}
 	edge := e.bl + e.br + e.pl + e.pr
 	mn, mx := l.columnWidths(rows, ncols, hs)
-	var smn, smx float64
+	pct := columnPercents(rows, ncols)
+	var smn, smx, sumPct, freeMx float64
 	for i := range ncols {
 		smn += mn[i]
 		smx += mx[i]
+		sumPct += pct[i]
+		if pct[i] == 0 {
+			freeMx += mx[i]
+		}
+	}
+	if sumPct > 0 {
+		// an auto-width table grows so percentage columns get their share
+		need := 0.0
+		for i := range ncols {
+			if pct[i] > 0 {
+				need = math.Max(need, mx[i]*100/pct[i])
+			}
+		}
+		if sumPct < 100 {
+			need = math.Max(need, freeMx*100/(100-sumPct))
+		}
+		smx = math.Max(smx, need)
 	}
 	spacing := 0.0
 	if ncols > 0 {
@@ -193,7 +210,12 @@ func (l *layouter) layoutTable(t *Box, x, y, cbw float64, pending margins, force
 	tableW = math.Max(tableW, minW)
 	inner := tableW - edge - spacing
 	widths := make([]float64, ncols)
+	fixedLayout := s.TableLayout == "fixed" && !s.Width.Auto
 	switch {
+	case fixedLayout:
+		widths = l.fixedColumnWidths(rows, ncols, inner)
+	case sumPct > 0:
+		widths = distributePercent(mn, mx, pct, inner)
 	case inner >= smx:
 		extra := inner - smx
 		for i := range ncols {
@@ -218,7 +240,7 @@ func (l *layouter) layoutTable(t *Box, x, y, cbw float64, pending margins, force
 		ml = math.Max(cbw-tableW-e.mr, 0)
 	}
 	tx := x + ml
-	top := y + pending.value()
+	top := l.afterMargin(y, pending)
 	startLen := len(l.items)
 
 	// captions above the table box
@@ -243,8 +265,19 @@ func (l *layouter) layoutTable(t *Box, x, y, cbw float64, pending margins, force
 	headerH := 0.0
 	firstRow := true
 	pushedFirst := false
-	for _, r := range rows {
-		items, h, adv := l.layoutRow(r, colX, widths, hs, collapse)
+	heights := l.measureRows(rows, colX, widths, hs, vs)
+	spanH := func(c *tcell, first int) float64 {
+		last := min(first+c.rowspan, len(rows)) - 1
+		h := vs * float64(last-first)
+		for i := first; i <= last; i++ {
+			h += heights[i]
+		}
+		return h
+	}
+	for ri, r := range rows {
+		h := heights[ri]
+		adv := h
+		items := l.layoutRow(r, colX, widths, hs, h, func(c *tcell) float64 { return spanH(c, ri) })
 		if r.header {
 			header = append(header, copyItems(items, 0, headerH)...)
 			headerH += adv + vs
@@ -290,6 +323,130 @@ func (l *layouter) layoutTable(t *Box, x, y, cbw float64, pending margins, force
 	}
 	_ = startLen
 	return blockResult{top: top, bottom: bottom, pushedFirst: pushedFirst}
+}
+
+// columnPercents returns, per column, the largest percentage width of a
+// single-column cell in it (0 when none), scaled down so they sum to <= 100.
+func columnPercents(rows []*trow, ncols int) []float64 {
+	pct := make([]float64, ncols)
+	sum := 0.0
+	for _, r := range rows {
+		for _, c := range r.cells {
+			if c.colspan != 1 || c.col >= ncols {
+				continue
+			}
+			if w := c.box.Style.Width; !w.Auto && w.Pct > 0 && w.Pt == 0 {
+				pct[c.col] = math.Max(pct[c.col], w.Pct)
+			}
+		}
+	}
+	for _, p := range pct {
+		sum += p
+	}
+	if sum > 100 {
+		for i := range pct {
+			pct[i] *= 100 / sum
+		}
+	}
+	return pct
+}
+
+// distributePercent sizes columns when some have percentage widths:
+// percentage columns get their share of inner (never below their minimum),
+// the rest share what is left in proportion to their max-content widths.
+func distributePercent(mn, mx, pct []float64, inner float64) []float64 {
+	n := len(mn)
+	w := make([]float64, n)
+	rest := inner
+	var freeMn, freeMx float64
+	nFree := 0
+	for i := range n {
+		if pct[i] > 0 {
+			w[i] = math.Max(mn[i], pct[i]/100*inner)
+			rest -= w[i]
+		} else {
+			freeMn += mn[i]
+			freeMx += mx[i]
+			nFree++
+		}
+	}
+	if nFree == 0 {
+		// only percentage columns: spread any remainder proportionally
+		if rest > 0 {
+			total := inner - rest
+			for i := range n {
+				if total > 0 {
+					w[i] += rest * w[i] / total
+				}
+			}
+		}
+		return w
+	}
+	rest = math.Max(rest, freeMn)
+	for i := range n {
+		if pct[i] > 0 {
+			continue
+		}
+		switch {
+		case rest >= freeMx && freeMx > 0:
+			w[i] = mx[i] + (rest-freeMx)*mx[i]/freeMx
+		case freeMx > freeMn:
+			w[i] = mn[i] + (mx[i]-mn[i])*(rest-freeMn)/(freeMx-freeMn)
+		case freeMx == 0:
+			w[i] = rest / float64(nFree)
+		default:
+			w[i] = mn[i]
+		}
+	}
+	return w
+}
+
+// fixedColumnWidths implements table-layout: fixed: the first row's cell
+// widths (lengths or percentages of the table) set the columns, and columns
+// without one share the remaining space equally.
+func (l *layouter) fixedColumnWidths(rows []*trow, ncols int, inner float64) []float64 {
+	w := make([]float64, ncols)
+	set := make([]bool, ncols)
+	if len(rows) > 0 {
+		for _, c := range rows[0].cells {
+			cs := c.box.Style
+			if cs.Width.Auto || c.col >= ncols {
+				continue
+			}
+			v := cs.Width.Resolve(inner, 0)
+			if cs.BoxSizing != "border-box" {
+				v += absPart(cs.Padding[css.Left]) + absPart(cs.Padding[css.Right]) +
+					cs.BorderUsed(css.Left) + cs.BorderUsed(css.Right)
+			}
+			end := min(c.col+c.colspan, ncols)
+			for i := c.col; i < end; i++ {
+				w[i] = v / float64(end-c.col)
+				set[i] = true
+			}
+		}
+	}
+	used, nFree := 0.0, 0
+	for i := range ncols {
+		if set[i] {
+			used += w[i]
+		} else {
+			nFree++
+		}
+	}
+	switch {
+	case nFree > 0:
+		share := math.Max(inner-used, 0) / float64(nFree)
+		for i := range ncols {
+			if !set[i] {
+				w[i] = share
+			}
+		}
+	case used > 0 && used < inner:
+		for i := range ncols {
+			w[i] += (inner - used) * w[i] / used
+		}
+	}
+	return w
 }
 
 func copyItems(items []Item, dx, dy float64) []Item {
@@ -343,17 +500,14 @@ func cloneItem(it Item) Item {
 	return it
 }
 
-// layoutRow lays out one table row at y = 0. It returns the items, the row
-// height, and the vertical advance to the next row.
-func (l *layouter) layoutRow(r *trow, colX, widths []float64, hs float64, collapse bool) ([]Item, float64, float64) {
-	type placed struct {
-		c      *tcell
-		x, w   float64
-		bt, bb float64
-	}
-	var cells []placed
-	rowH := 0.0
-	maxBT, maxBB := 0.0, 0.0
+// rowCell is a cell of a row with its horizontal placement.
+type rowCell struct {
+	c    *tcell
+	x, w float64
+}
+
+func rowCells(r *trow, colX, widths []float64, hs float64) []rowCell {
+	var cells []rowCell
 	for _, c := range r.cells {
 		if c.col >= len(colX) {
 			continue
@@ -363,23 +517,53 @@ func (l *layouter) layoutRow(r *trow, colX, widths []float64, hs float64, collap
 		for i := c.col; i < end; i++ {
 			w += widths[i]
 		}
-		x := colX[c.col]
-		cs := c.box.Style
-		bt, bb := cs.BorderUsed(css.Top), cs.BorderUsed(css.Bottom)
-		cells = append(cells, placed{c: c, x: x, w: w, bt: bt, bb: bb})
-		maxBT = math.Max(maxBT, bt)
-		maxBB = math.Max(maxBB, bb)
-		// measuring pass
-		m := l.sub()
-		res := m.layoutBlockW(c.box, x, 0, w, margins{}, true, w)
-		if c.rowspan == 1 {
-			rowH = math.Max(rowH, res.bottom)
+		cells = append(cells, rowCell{c: c, x: colX[c.col], w: w})
+	}
+	return cells
+}
+
+// measureRows returns the height of every row. A cell spanning several rows
+// that is taller than them together makes the last spanned row taller.
+func (l *layouter) measureRows(rows []*trow, colX, widths []float64, hs, vs float64) []float64 {
+	heights := make([]float64, len(rows))
+	type span struct {
+		first, last int
+		h           float64
+	}
+	var spans []span
+	for i, r := range rows {
+		h := 0.0
+		for _, p := range rowCells(r, colX, widths, hs) {
+			m := l.sub()
+			res := m.layoutBlockW(p.c.box, p.x, 0, p.w, margins{}, true, p.w)
+			if p.c.rowspan == 1 {
+				h = math.Max(h, res.bottom)
+			} else {
+				spans = append(spans, span{i, min(i+p.c.rowspan, len(rows)) - 1, res.bottom})
+			}
+		}
+		if rs := r.box.Style; !rs.Height.Auto && !rs.Height.HasPct() {
+			h = math.Max(h, rs.Height.Pt)
+		}
+		heights[i] = h
+	}
+	for _, sp := range spans {
+		have := vs * float64(sp.last-sp.first)
+		for i := sp.first; i <= sp.last; i++ {
+			have += heights[i]
+		}
+		if sp.h > have {
+			heights[sp.last] += sp.h - have
 		}
 	}
+	return heights
+}
+
+// layoutRow lays out one table row at y = 0 with the given height; spanH
+// returns the height of a cell spanning several rows. It returns the items.
+func (l *layouter) layoutRow(r *trow, colX, widths []float64, hs, rowH float64, spanH func(*tcell) float64) []Item {
+	cells := rowCells(r, colX, widths, hs)
 	rs := r.box.Style
-	if !rs.Height.Auto && !rs.Height.HasPct() {
-		rowH = math.Max(rowH, rs.Height.Pt)
-	}
 	out := l.sub()
 	if !rs.BackgroundColor.IsTransparent() && len(cells) > 0 {
 		x0 := cells[0].x
@@ -387,9 +571,13 @@ func (l *layouter) layoutRow(r *trow, colX, widths []float64, hs float64, collap
 		out.emit(&RectItem{X: x0, Y: 0, W: x1 - x0, H: rowH, Color: rs.BackgroundColor})
 	}
 	for _, p := range cells {
-		l.e.cellHeight[p.c.box] = rowH
+		h := rowH
+		if p.c.rowspan > 1 {
+			h = spanH(p.c)
+		}
+		l.e.cellHeight[p.c.box] = h
 		out.layoutBlockW(p.c.box, p.x, 0, p.w, margins{}, true, p.w)
 		delete(l.e.cellHeight, p.c.box)
 	}
-	return out.items, rowH, rowH
+	return out.items
 }
