@@ -110,10 +110,9 @@ func (l *layouter) emitLine(lb *lineBox, x0, width float64, block *css.Style) {
 		m := l.e.styleMetrics(s)
 		top := baseline + e.ctx.shift - m.ascent - s.Padding[css.Top].Resolve(width, 0) - s.BorderUsed(css.Top)
 		bot := baseline + e.ctx.shift + m.descent + s.Padding[css.Bottom].Resolve(width, 0) + s.BorderUsed(css.Bottom)
-		x0b, x1b := e.x0, e.x1
-		if !e.opens {
-			x0b -= 0
-		}
+		x0b, x1b := e.x0+e.ctx.relX, e.x1+e.ctx.relX
+		top += e.ctx.relY
+		bot += e.ctx.relY
 		sides := [4]bool{true, e.closes, true, e.opens}
 		if !s.BackgroundColor.IsTransparent() && s.Visibility == "visible" {
 			l.emit(&RectItem{X: x0b, Y: top, W: x1b - x0b, H: bot - top, Color: s.BackgroundColor, Radius: s.BorderRadius[0].Resolve(x1b-x0b, 0)})
@@ -124,9 +123,11 @@ func (l *layouter) emitLine(lb *lineBox, x0, width float64, block *css.Style) {
 	for i, f := range frags {
 		switch f.kind {
 		case fText, fSpace:
-			l.emitTextFrag(f, xs[i], baseline)
+			rx, ry := f.rel()
+			l.emitTextFrag(f, xs[i]+rx, baseline+ry)
 		case fAtomic:
 			a := f.atomic
+			rx, ry := f.rel()
 			shift := 0.0
 			if f.ctx != nil {
 				shift = f.ctx.shift
@@ -146,16 +147,19 @@ func (l *layouter) emitLine(lb *lineBox, x0, width float64, block *css.Style) {
 			default:
 				top = baseline + shift + a.valignLen - a.baseline
 			}
+			top += ry
 			for _, it := range a.items {
-				it.translate(xs[i], top)
+				it.translate(xs[i]+rx, top)
 				l.emit(it)
 			}
 			if a.box.Href != "" {
-				l.emitLink(a.box.Href, xs[i], top, a.w, a.h)
+				l.emitLink(a.box.Href, xs[i]+rx, top, a.w, a.h)
 			}
 			if a.box.ID != "" {
 				l.emit(&AnchorItem{Name: a.box.ID, Y: top})
 			}
+		case fAbs:
+			l.addAbs(f.box, xs[i], lb.top)
 		}
 	}
 	// decorations
@@ -169,6 +173,14 @@ func (l *layouter) emitLine(lb *lineBox, x0, width float64, block *css.Style) {
 			l.emit(&AnchorItem{Name: e.ctx.box.ID, Y: lb.top})
 		}
 	}
+}
+
+// rel returns the relative-position offset of the frag's inline box.
+func (f *frag) rel() (float64, float64) {
+	if f.ctx == nil {
+		return 0, 0
+	}
+	return f.ctx.relX, f.ctx.relY
 }
 
 func (l *layouter) emitLink(href string, x, y, w, h float64) {
@@ -219,6 +231,9 @@ func (l *layouter) emitDecorations(frags []*frag, xs []float64, extra, baseline 
 		if f.ctx != nil {
 			shift = f.ctx.shift
 		}
+		rx, ry := f.rel()
+		shift += ry
+		fx := xs[i] + rx
 		face := f.runs[0].Face
 		fm := face.Metrics()
 		size := f.style.FontSize
@@ -240,14 +255,14 @@ func (l *layouter) emitDecorations(frags []*frag, xs []float64, extra, baseline 
 				}
 				merged := false
 				for _, s := range open {
-					if s.which == ln.k && s.d == d && math.Abs(s.y-ln.y) < eps && math.Abs(s.x1-xs[i]) < 0.1 {
-						s.x1 = xs[i] + w
+					if s.which == ln.k && s.d == d && math.Abs(s.y-ln.y) < eps && math.Abs(s.x1-fx) < 0.1 {
+						s.x1 = fx + w
 						merged = true
 						break
 					}
 				}
 				if !merged {
-					open = append(open, &seg{d: d, x0: xs[i], x1: xs[i] + w, y: ln.y, thick: thick, which: ln.k})
+					open = append(open, &seg{d: d, x0: fx, x1: fx + w, y: ln.y, thick: thick, which: ln.k})
 				}
 			}
 		}

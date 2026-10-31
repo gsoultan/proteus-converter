@@ -39,9 +39,10 @@ func fixTree(b *Box) {
 	normalizeBlockChildren(b)
 }
 
+// hasBlockChild reports whether b has an in-flow block-level child.
 func hasBlockChild(b *Box) bool {
 	for _, c := range b.Children {
-		if c.isBlockLevel() {
+		if c.isBlockLevel() && !c.outOfFlow() {
 			return true
 		}
 	}
@@ -91,16 +92,40 @@ func normalizeBlockChildren(b *Box) {
 		}
 		run = nil
 	}
-	for _, c := range b.Children {
-		if c.isBlockLevel() {
+	for i, c := range b.Children {
+		switch {
+		case c.outOfFlow():
+			// floats and absolute boxes join adjacent inline content, if any
+			if (len(run) > 0 && !allCollapsibleSpace(run)) || nextInFlowIsInline(b.Children[i+1:]) {
+				run = append(run, c)
+			} else {
+				flush()
+				out = append(out, c)
+			}
+		case c.isBlockLevel():
 			flush()
 			out = append(out, c)
-		} else {
+		default:
 			run = append(run, c)
 		}
 	}
 	flush()
 	b.Children = out
+}
+
+func nextInFlowIsInline(boxes []*Box) bool {
+	for _, c := range boxes {
+		if c.outOfFlow() {
+			continue
+		}
+		if c.isBlockLevel() {
+			return false
+		}
+		if !allCollapsibleSpace([]*Box{c}) {
+			return true
+		}
+	}
+	return false
 }
 
 func allCollapsibleSpace(boxes []*Box) bool {

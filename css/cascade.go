@@ -405,8 +405,14 @@ func (c *Cascade) computeStyle(decls []matchedDecl, parent, initial *Style, isRo
 		}
 	}
 	// blockification of floats/absolutes and the root
-	if isRoot || s.Float != "none" || s.Position == "absolute" || s.Position == "fixed" {
+	if s.IsAbsolute() {
+		s.Float = "none"
+	}
+	if isRoot || s.Float != "none" || s.IsAbsolute() || (!isRoot && (parent.IsFlex() || parent.IsGrid())) {
 		s.Display = blockify(s.Display)
+	}
+	if !isRoot && (parent.IsFlex() || parent.IsGrid()) {
+		s.Float = "none" // floats do not apply to flex and grid items
 	}
 	return s
 }

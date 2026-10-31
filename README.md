@@ -56,9 +56,14 @@ decorations and super/subscripts, inline-block, images (PNG, JPEG, GIF),
 lists, tables (auto layout, colspan/rowspan, collapsed and separated borders,
 repeated header rows), page breaks (`break-before/after/inside`,
 orphans/widows), links, named destinations and a PDF outline from headings.
+It also covers floats and `clear`, `position: relative/absolute/fixed` with
+`z-index` (fixed boxes repeat on every page), flexbox, CSS grid (`fr`,
+`minmax()`, `repeat()`, named areas, line placement), inline and file SVG,
+`object-fit`, background images (`background-size/position/repeat`) and
+`linear-gradient()`.
 
-Not yet: floats, flexbox and grid, positioned elements, SVG, background
-images, WOFF fonts, `@page :first` and margin boxes, CSS counters beyond list
+Not yet: radial gradients, SVG gradients and filters (gradients are drawn in
+their average color), `grid-auto-flow: column`, WOFF fonts, `@page :first` and margin boxes, CSS counters beyond list
 numbering. Unsupported input produces a warning (see `WithWarningHandler`),
 never a failure.
 

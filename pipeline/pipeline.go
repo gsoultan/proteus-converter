@@ -117,7 +117,7 @@ func Render(ctx context.Context, in Input, cfg *core.Config, w io.Writer) error 
 	// 4. cascade and boxes
 	cascade := css.NewCascade(sheets, cw, ch, warn)
 	styles := cascade.Compute(in.Doc)
-	images := newImageLoader(ctx, loader, base)
+	images := newImageLoader(ctx, loader, base, warn)
 	bd := &layout.Builder{Styles: styles, Images: images.load, Warn: warn}
 	root := bd.Build(in.Doc)
 	if err := ctx.Err(); err != nil {

@@ -1,11 +1,7 @@
 package render
 
 import (
-	"bytes"
 	"fmt"
-	"image"
-	"image/color"
-	_ "image/jpeg" // JPEG config decoding
 	"io"
 
 	"github.com/gsoultan/gpdf/doc"
@@ -29,6 +25,8 @@ type GPDF struct {
 	warn       func(string)
 	err        error
 	outline    bool
+	xobjects   map[*layout.Image]string // image XObjects registered on the current page
+	decoded    map[*layout.Image]*rawImage
 }
 
 // NewGPDF returns a gpdf painter. outline enables bookmarks from headings.
@@ -42,7 +40,8 @@ func NewGPDF(meta Metadata, outline bool, warn func(string)) *GPDF {
 	if meta.Language != "" {
 		b.SetLanguage(meta.Language)
 	}
-	return &GPDF{b: b, page: -1, registered: map[string]bool{}, dests: map[string]bool{}, warn: warn, outline: outline}
+	return &GPDF{b: b, page: -1, registered: map[string]bool{}, dests: map[string]bool{}, warn: warn, outline: outline,
+		decoded: map[*layout.Image]*rawImage{}}
 }
 
 func (g *GPDF) warnf(format string, args ...any) {
@@ -58,6 +57,7 @@ func (g *GPDF) BeginPage(width, height float64) {
 	g.b.PageSize(width, height).AddPage()
 	g.page++
 	g.pageH = height
+	g.xobjects = map[*layout.Image]string{}
 }
 
 // FillRect implements Painter.
@@ -138,28 +138,6 @@ func (g *GPDF) Text(x, baseline float64, text string, face *fonts.Face, size flo
 		letterSpacing = minSpacing
 	}
 	g.b.DrawTextWithSpacing(text, x, g.pageH-baseline, name, size, rgb(c), letterSpacing, 0)
-}
-
-// Image implements Painter.
-func (g *GPDF) Image(x, y, w, h float64, img *layout.Image) {
-	if img == nil || w <= 0 || h <= 0 {
-		return
-	}
-	py := g.pageH - y - h
-	if img.JPEG {
-		cs := "DeviceRGB"
-		if cfg, _, err := image.DecodeConfig(bytes.NewReader(img.Data)); err == nil {
-			switch cfg.ColorModel {
-			case color.GrayModel, color.Gray16Model:
-				cs = "DeviceGray"
-			case color.CMYKModel:
-				cs = "DeviceCMYK"
-			}
-		}
-		g.b.DrawJPEG(x, py, w, h, img.Data, img.Width, img.Height, cs)
-		return
-	}
-	g.b.DrawPNG(x, py, w, h, img.Data)
 }
 
 // LinkURL implements Painter.

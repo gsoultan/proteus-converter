@@ -18,6 +18,7 @@ type lineBox struct {
 	top      float64
 	height   float64
 	baseline float64 // from line top
+	x0       float64 // left edge of the line box (moves right of left floats)
 }
 
 // hasContent reports whether frags produce at least one line box.
@@ -64,40 +65,10 @@ func (l *layouter) breakLines(frags []*frag, avail, indent float64) []*lineBox {
 			ind = indent
 			lineAvail -= indent
 		}
-		width := 0.0
-		lastBreak := -1
-		j := i
-		forced := false
-		for j < n {
-			f := frags[j]
-			if f.kind == fBreak {
-				j++
-				forced = true
-				break
-			}
-			if f.kind != fSpace && f.kind != fClose && j > i && width+f.width > lineAvail+eps {
-				if lastBreak >= i {
-					j = lastBreak + 1
-					break
-				}
-				if f.kind == fText && canBreakAnywhere(f.style) && len([]rune(f.text)) > 1 {
-					chars := l.splitFragChars(f)
-					frags = append(frags[:j], append(chars, frags[j+1:]...)...)
-					n = len(frags)
-					continue
-				}
-			} else if f.kind == fText && j == i && f.width > lineAvail+eps && canBreakAnywhere(f.style) && len([]rune(f.text)) > 1 {
-				chars := l.splitFragChars(f)
-				frags = append(frags[:j], append(chars, frags[j+1:]...)...)
-				n = len(frags)
-				continue
-			}
-			width += f.width
-			if f.breakOK {
-				lastBreak = j
-			}
-			j++
-		}
+		var j int
+		var forced bool
+		frags, j, forced = l.breakOne(frags, i, lineAvail)
+		n = len(frags)
 		lines = append(lines, &lineBox{frags: frags[i:j], forced: forced, avail: lineAvail, indent: ind})
 		i = j
 		first = false
@@ -108,13 +79,55 @@ func (l *layouter) breakLines(frags []*frag, avail, indent float64) []*lineBox {
 	return lines
 }
 
+// breakOne finds the end of the line starting at frags[i] for a line of
+// width lineAvail. Unbreakable text may be split into characters, so the
+// (possibly updated) frag slice is returned with the end index.
+func (l *layouter) breakOne(frags []*frag, i int, lineAvail float64) ([]*frag, int, bool) {
+	n := len(frags)
+	width := 0.0
+	lastBreak := -1
+	j := i
+	forced := false
+	for j < n {
+		f := frags[j]
+		if f.kind == fBreak {
+			j++
+			forced = true
+			break
+		}
+		if f.kind != fSpace && f.kind != fClose && j > i && width+f.width > lineAvail+eps {
+			if lastBreak >= i {
+				j = lastBreak + 1
+				break
+			}
+			if f.kind == fText && canBreakAnywhere(f.style) && len([]rune(f.text)) > 1 {
+				chars := l.splitFragChars(f)
+				frags = append(frags[:j], append(chars, frags[j+1:]...)...)
+				n = len(frags)
+				continue
+			}
+		} else if f.kind == fText && j == i && f.width > lineAvail+eps && canBreakAnywhere(f.style) && len([]rune(f.text)) > 1 {
+			chars := l.splitFragChars(f)
+			frags = append(frags[:j], append(chars, frags[j+1:]...)...)
+			n = len(frags)
+			continue
+		}
+		width += f.width
+		if f.breakOK {
+			lastBreak = j
+		}
+		j++
+	}
+	return frags, j, forced
+}
+
 // onlyEdges reports whether frags hold nothing but zero-width box edges and collapsible spaces.
 func onlyEdges(frags []*frag) bool {
 	for _, f := range frags {
 		switch {
 		case (f.kind == fOpen || f.kind == fClose) && f.width == 0:
 		case f.kind == fSpace && f.collapse:
-		case f.kind == fWbr:
+		case f.kind == fWbr, f.kind == fFloat, f.kind == fAbs:
 		default:
 			return false
 		}
@@ -132,10 +145,10 @@ func (lb *lineBox) trimmed() []*frag {
 			end--
 			continue
 		}
-		if f.kind == fClose || f.kind == fOpen {
+		if f.kind == fClose || f.kind == fOpen || f.kind == fFloat || f.kind == fAbs {
 			// keep looking through zero-width box edges
 			k := end - 1
-			for k > 0 && (fr[k].kind == fClose || fr[k].kind == fOpen) {
+			for k > 0 && (fr[k].kind == fClose || fr[k].kind == fOpen || fr[k].kind == fFloat || fr[k].kind == fAbs) {
 				k--
 			}
 			if k >= 0 && fr[k].kind == fSpace && fr[k].collapse {
@@ -260,6 +273,7 @@ func (l *layouter) placeLines(lines []*lineBox, y0 float64, s *css.Style) (pushe
 
 type inlineResult struct {
 	placed        bool
+	oof           bool
 	end           float64
 	firstBaseline float64
 	lastBaseline  float64
@@ -283,19 +297,29 @@ func (l *layouter) layoutInline(b *Box, x, y, width float64, pending *margins) i
 		if mk != nil {
 			l.marker = mk // give it to the next formatting context
 		}
-		return inlineResult{}
+		return inlineResult{oof: l.placeOutOfFlow(frags, x, y+pending.value(), width)}
 	}
 	y += pending.value()
 	*pending = margins{}
 	indent := s.TextIndent.Resolve(width, 0)
-	lines := l.breakLines(frags, width, indent)
-	for _, lb := range lines {
-		l.measureLine(lb, s)
-	}
+	var lines []*lineBox
 	res := inlineResult{placed: true}
-	res.pushedFirst = l.placeLines(lines, y, s)
+	if hasFloatFrags(frags) || l.floatsBelow(y, x, x+width) {
+		lines = l.linesAroundFloats(frags, x, y, width, indent, s)
+		res.oof = true
+	} else {
+		lines = l.breakLines(frags, width, indent)
+		for _, lb := range lines {
+			l.measureLine(lb, s)
+			lb.x0 = x
+		}
+		res.pushedFirst = l.placeLines(lines, y, s)
+	}
+	if len(lines) > 0 && l.fragment && lines[0].top > y+eps && !l.atPageStart(y) && l.atPageStart(lines[0].top) {
+		res.pushedFirst = true
+	}
 	for i, lb := range lines {
-		l.emitLine(lb, x, width, s)
+		l.emitLine(lb, lb.x0, width, s)
 		if i == 0 {
 			res.firstBaseline = lb.top + lb.baseline
 			if markerFrags != nil {
@@ -305,7 +329,158 @@ func (l *layouter) layoutInline(b *Box, x, y, width float64, pending *margins) i
 		res.lastBaseline = lb.top + lb.baseline
 		res.end = lb.top + lb.height
 	}
+	if len(lines) == 0 {
+		res.placed = false
+	}
 	return res
+}
+
+func hasFloatFrags(frags []*frag) bool {
+	for _, f := range frags {
+		if f.kind == fFloat {
+			return true
+		}
+	}
+	return false
+}
+
+// floatsBelow reports whether a float of the current context reaches below y
+// and overlaps the horizontal range [x0, x1].
+func (l *layouter) floatsBelow(y, x0, x1 float64) bool {
+	if l.fc.empty() {
+		return false
+	}
+	for _, f := range l.fc.floats {
+		if f.y1 > y+eps && f.x1 > x0+eps && f.x0 < x1-eps {
+			return true
+		}
+	}
+	return false
+}
+
+// placeOutOfFlow positions the floats and records the absolute boxes of
+// inline content that produced no line box.
+func (l *layouter) placeOutOfFlow(frags []*frag, x, y, width float64) bool {
+	found := false
+	for _, f := range frags {
+		switch f.kind {
+		case fFloat:
+			if !f.placed {
+				l.placeFloat(f.box, f.atomic, x, y, width)
+				f.placed = true
+			}
+			found = true
+		case fAbs:
+			l.addAbs(f.box, x, y)
+			found = true
+		}
+	}
+	return found
+}
+
+// linesAroundFloats breaks and places lines one at a time, shortening each
+// line by the floats beside it and positioning floats met in the content.
+func (l *layouter) linesAroundFloats(frags []*frag, x, y, width, indent float64, s *css.Style) []*lineBox {
+	var lines []*lineBox
+	i, n := 0, len(frags)
+	first := true
+	yCur := y
+	strut := l.e.styleMetrics(s).lh
+	for i < n {
+		for i < n && ((frags[i].kind == fSpace && frags[i].collapse) || frags[i].kind == fFloat) {
+			if f := frags[i]; f.kind == fFloat && !f.placed {
+				l.placeFloat(f.box, f.atomic, x, yCur, width)
+				f.placed = true
+			}
+			i++
+		}
+		if i >= n {
+			break
+		}
+		if len(lines) > 0 && onlyEdges(frags[i:]) {
+			lb := lines[len(lines)-1]
+			lb.frags = append(lb.frags[:len(lb.frags):len(lb.frags)], frags[i:]...)
+			l.placeOutOfFlow(frags[i:], x, yCur, width)
+			break
+		}
+		var lb *lineBox
+		var j int
+		for attempt := 0; ; attempt++ {
+			ind := 0.0
+			if first {
+				ind = indent
+			}
+			bl, br := l.fc.band(yCur, strut, x, x+width)
+			lineAvail := br - bl - ind
+			var forced bool
+			frags, j, forced = l.breakOne(frags, i, lineAvail)
+			n = len(frags)
+			if attempt < 100 {
+				// a float met inside the line goes on this line when it fits
+				if k := firstUnplacedFloat(frags, i, j); k >= 0 {
+					used := 0.0
+					for _, f := range frags[i:k] {
+						used += f.width
+					}
+					if used+frags[k].atomic.w <= lineAvail+eps {
+						l.placeFloat(frags[k].box, frags[k].atomic, x, yCur, width)
+						frags[k].placed = true
+						continue
+					}
+				}
+			}
+			lb = &lineBox{frags: frags[i:j], forced: forced, avail: lineAvail, indent: ind, x0: bl}
+			l.measureLine(lb, s)
+			if attempt < 100 {
+				narrowed := bl > x+eps || br < x+width-eps
+				if narrowed && lineWidth(lb) > lineAvail+eps {
+					if nb := l.fc.nextBottom(yCur, lb.height); nb > yCur {
+						yCur = nb
+						continue
+					}
+				}
+				if ny := l.place(yCur, lb.height); ny != yCur {
+					yCur = ny
+					continue
+				}
+			}
+			break
+		}
+		lb.top = yCur
+		lines = append(lines, lb)
+		yCur += lb.height
+		// floats that did not fit go below the line
+		for k := i; k < j; k++ {
+			if f := frags[k]; f.kind == fFloat && !f.placed {
+				l.placeFloat(f.box, f.atomic, x, yCur, width)
+				f.placed = true
+			}
+		}
+		i = j
+		first = false
+	}
+	if len(lines) > 0 {
+		lines[len(lines)-1].last = true
+	}
+	return lines
+}
+
+func firstUnplacedFloat(frags []*frag, i, j int) int {
+	for k := i; k < j; k++ {
+		if frags[k].kind == fFloat && !frags[k].placed {
+			return k
+		}
+	}
+	return -1
+}
+
+// lineWidth returns the width of a line's content without trailing spaces.
+func lineWidth(lb *lineBox) float64 {
+	w := 0.0
+	for _, f := range lb.trimmed() {
+		w += f.width
+	}
+	return w
 }
 
 // kMarkerPadding is Blink's gap (px) between a symbol marker and the content.

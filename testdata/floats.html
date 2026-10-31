@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Floats and positioning</title>
+<style>
+  @page { size: A4; margin: 1cm; }
+  body { font-family: sans-serif; font-size: 13px; line-height: 1.45; color: #222; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  .figure { float: left; width: 160px; margin: 4px 14px 8px 0; background: #e0e7ff; border: 1px solid #a5b4fc; padding: 6px; }
+  .figure .ph { height: 90px; background: #6366f1; }
+  .figure p { margin: 4px 0 0; font-size: 11px; color: #3730a3; }
+  .quote { float: right; width: 172px; margin: 0 0 8px 14px; padding: 8px 10px; border-left: 4px solid #f59e0b; background: #fffbeb; font-style: italic; }
+  .clear { clear: both; }
+  .note { overflow: hidden; background: #f1f5f9; padding: 6px; }
+  .thumb { float: left; width: 48px; height: 48px; margin-right: 10px; background: #94a3b8; border-radius: 6px; }
+  .card { position: relative; border: 2px solid #334155; padding: 12px; margin-top: 16px; height: 110px; }
+  .badge { position: absolute; top: -10px; right: 12px; background: #dc2626; color: #fff; padding: 2px 8px; font-size: 11px; }
+  .corner { position: absolute; bottom: 8px; left: 12px; width: 60px; height: 20px; background: #10b981; }
+  .shift { position: relative; left: 24px; top: 4px; background: #fde68a; }
+  .stamp { position: absolute; top: 0; right: 0; width: 70px; height: 30px; background: #0ea5e9; color: #fff; text-align: center; line-height: 30px; }
+</style>
+</head>
+<body>
+<div class="stamp">DRAFT</div>
+<h1>Quarterly field report</h1>
+<div class="figure"><div class="ph"></div><p>Figure 1. Sampling sites along the northern ridge.</p></div>
+<div class="quote">"The western plots recovered faster than any model predicted."</div>
+<p>Survey teams visited forty-two plots between March and June. Soil moisture was recorded at three depths, and canopy cover was estimated from photographs taken at noon. Most plots showed steady recovery after the previous season's drought, although the eastern slope remained below its long-term average.</p>
+<p>Seedling counts rose in every plot that had been fenced, while unfenced plots showed heavy browsing. The difference was largest in the lower valley, where deer tracks were found at nine of eleven sites. Fencing remains the most cost-effective measure for the coming year.</p>
+<p>Water quality samples from the two streams were within normal ranges. Turbidity peaked after the April storms and returned to baseline within a week.</p>
+<h2 class="clear">Site notes</h2>
+<div class="thumb"></div>
+<div class="note">Plot 17 needs a new marker post. The old post was found about two meters downhill after the storm, and the GPS position should be checked before the next visit.</div>
+<p class="clear">The team recommends adding six plots on the southern face next season.</p>
+<div class="card">
+  <span class="badge">Priority</span>
+  Equipment check: replace the moisture probe at plot 4 and recalibrate the <span class="shift">field scale</span> before July.
+  <div class="corner"></div>
+</div>
+</body>
+</html>

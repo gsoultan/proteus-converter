@@ -316,6 +316,9 @@ func cloneItem(it Item) Item {
 	case *ImageItem:
 		c := *v
 		return &c
+	case *PathItem:
+		c := *v
+		return &c
 	case *LinkItem:
 		c := *v
 		return &c

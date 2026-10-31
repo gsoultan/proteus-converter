@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Images</title>
+<style>
+  @page { size: A4; margin: 1cm; }
+  body { font-family: sans-serif; font-size: 13px; color: #1f2937; }
+  .banner { height: 110px; background: linear-gradient(90deg, #1d4ed8, #9333ea); color: #fff; padding: 14px; border-radius: 10px; }
+  .banner h1 { margin: 0; font-size: 24px; }
+  .row { display: flex; gap: 14px; align-items: flex-start; margin-top: 14px; }
+  .avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+  .cover { width: 160px; height: 90px; object-fit: cover; border: 2px solid #111827; }
+  .contain { width: 160px; height: 90px; object-fit: contain; background: #e5e7eb; }
+  .tiles { height: 70px; background: url(assets/tile.png); border: 1px solid #94a3b8; margin-top: 14px; padding: 8px; }
+  .hero { height: 120px; background: #000 url(assets/landscape.jpg) center / cover no-repeat; margin-top: 14px; color: #fff; padding: 10px; font-size: 18px; }
+  .icon { width: 28px; height: 28px; vertical-align: middle; }
+  .stripe { height: 30px; margin-top: 14px; background: repeating-linear-gradient(45deg, #fde68a 0, #fde68a 10px, #fff 10px, #fff 20px); }
+</style>
+</head>
+<body>
+<div class="banner"><h1>Image handling</h1>Gradient background with text painted on top.</div>
+<div class="row">
+  <img class="avatar" src="assets/landscape.jpg" alt="avatar">
+  <img src="assets/badge.png" alt="badge">
+  <img class="cover" src="assets/landscape.jpg" alt="cover">
+  <img class="contain" src="assets/landscape.jpg" alt="contain">
+</div>
+<p>An SVG chart from a file:</p>
+<img src="assets/chart.svg" alt="chart">
+<p>Inline SVG icons
+  <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#16a34a"/><path d="M7 12l3 3 7-7" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  and
+  <svg class="icon" viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4.5 2 7.5-6.5-4.5-6.5 4.5 2-7.5L2 9h7z" fill="#f59e0b"/></svg>
+  sit on the text line.</p>
+<div class="tiles">Repeating background tile</div>
+<div class="hero">Cover background image</div>
+<div class="stripe"></div>
+</body>
+</html>

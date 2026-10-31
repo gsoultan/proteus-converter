@@ -23,12 +23,20 @@ type Style struct {
 	Position string
 	Float    string
 	Clear    string
+	Inset    [4]Length // top, right, bottom, left (Auto when unset)
+	ZIndex   int
 
-	Color           Color
-	BackgroundColor Color
-	BackgroundImage string // url target, if any
-	Opacity         float64
-	Visibility      string
+	Color              Color
+	BackgroundColor    Color
+	BackgroundImage    string // url target, if any
+	BackgroundGradient string // linear-gradient(...) or repeating variant, unparsed
+	BackgroundSize     BackgroundSize
+	BackgroundPosition [2]Length
+	BackgroundRepeat   [2]string
+	BackgroundOrigin   string
+	BackgroundClip     string
+	Opacity            float64
+	Visibility         string
 
 	FontFamily  []string
 	FontSize    float64
@@ -68,6 +76,30 @@ type Style struct {
 	MaxWidth, MaxHeight Length // Auto means none
 	BoxSizing           string
 	Overflow            string
+	ObjectFit           string
+	ObjectPosition      [2]Length
+
+	// flexbox and grid
+	FlexDirection       string
+	FlexWrap            string
+	JustifyContent      string
+	AlignItems          string
+	AlignSelf           string
+	AlignContent        string
+	JustifyItems        string
+	JustifySelf         string
+	FlexGrow            float64
+	FlexShrink          float64
+	FlexBasis           Length
+	Order               int
+	RowGap, ColumnGap   Length
+	GridTemplateColumns TrackList
+	GridTemplateRows    TrackList
+	GridAutoColumns     TrackList
+	GridAutoRows        TrackList
+	GridTemplateAreas   [][]string
+	GridAutoFlow        string
+	GridPlacement       [4]GridLine // row-start, column-start, row-end, column-end
 
 	ListStyleType     string
 	ListStylePosition string
@@ -144,7 +176,34 @@ func (s *Style) resetNonInherited() {
 	s.Float = "none"
 	s.Clear = "none"
 	s.BackgroundColor = Transparent
+	s.Inset = [4]Length{Auto, Auto, Auto, Auto}
+	s.ZIndex = 0
 	s.BackgroundImage = ""
+	s.BackgroundGradient = ""
+	s.BackgroundSize = BackgroundSize{W: Auto, H: Auto}
+	s.BackgroundPosition = [2]Length{}
+	s.BackgroundRepeat = [2]string{"repeat", "repeat"}
+	s.BackgroundOrigin = "padding-box"
+	s.BackgroundClip = "border-box"
+	s.ObjectFit = "fill"
+	s.ObjectPosition = [2]Length{{Pct: 50}, {Pct: 50}}
+	s.FlexDirection = "row"
+	s.FlexWrap = "nowrap"
+	s.JustifyContent = "normal"
+	s.AlignItems = "normal"
+	s.AlignSelf = "auto"
+	s.AlignContent = "normal"
+	s.JustifyItems = "legacy"
+	s.JustifySelf = "auto"
+	s.FlexGrow, s.FlexShrink = 0, 1
+	s.FlexBasis = Auto
+	s.Order = 0
+	s.RowGap, s.ColumnGap = Length{}, Length{}
+	s.GridTemplateColumns, s.GridTemplateRows = TrackList{}, TrackList{}
+	s.GridAutoColumns, s.GridAutoRows = TrackList{}, TrackList{}
+	s.GridTemplateAreas = nil
+	s.GridAutoFlow = "row"
+	s.GridPlacement = [4]GridLine{}
 	s.Opacity = 1
 	s.VerticalAlign = "baseline"
 	s.VerticalLength = Length{}
@@ -198,6 +257,18 @@ func (s *Style) LineHeightPt(normal float64) float64 {
 		return s.LineHeight.Pt
 	}
 }
+
+// IsFlex reports whether the element is a flex container.
+func (s *Style) IsFlex() bool { return s.Display == "flex" || s.Display == "inline-flex" }
+
+// IsGrid reports whether the element is a grid container.
+func (s *Style) IsGrid() bool { return s.Display == "grid" || s.Display == "inline-grid" }
+
+// IsOutOfFlow reports whether the box is floated or absolutely positioned.
+func (s *Style) IsOutOfFlow() bool { return s.Float != "none" || s.IsAbsolute() }
+
+// IsAbsolute reports whether the box is absolutely positioned (absolute or fixed).
+func (s *Style) IsAbsolute() bool { return s.Position == "absolute" || s.Position == "fixed" }
 
 // IsBlockLevel reports whether the display value creates a block-level box.
 func (s *Style) IsBlockLevel() bool {

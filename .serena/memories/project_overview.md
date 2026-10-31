@@ -5,8 +5,15 @@ repo formerly gpdf-converter). PDF backend: github.com/gsoultan/gpdf. DOCX input
 A future proteus-server will expose conversion over the network; it is not in this repo.
 
 Pipeline: parse (x/net/html, goldmark for Markdown) -> collect stylesheets (pipeline/styles.go)
--> cascade (css/cascade.go) -> box tree (layout/build.go, fixup.go) -> layout (layout/*.go)
--> paginate (layout/paginate.go) -> paint through render.Painter (render/gpdf.go).
+-> cascade (css/cascade.go, layout props in css/layoutprops.go) -> box tree (layout/build.go,
+fixup.go) -> layout (layout/block.go, inline*.go, float.go, flex.go, grid.go, table.go,
+atomic.go, images.go, background.go) -> paginate (layout/paginate.go) -> paint through
+render.Painter (render/gpdf.go, render/gpdf_ops.go).
+
+Packages: svg (public) parses SVG into shapes/paths (svg.Parse, svg.FromNode, Matrix, Seg);
+layout turns them into PathItem/TextItem. Painter has Image(x,y,w,h,img,clip) and
+Path(matrix, segs, style, clip). Floats live in a floatCtx per block formatting context;
+absolute boxes collect in a posCtx on their containing block (layoutBlockW).
 
 Public API lives in proteus.go (aliases of core): Convert, ConvertBytes, ConvertString,
 ConvertFile, Register, Lookup, FormatForPath, With* options. Patterns: Converter strategy,
