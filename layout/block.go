@@ -422,7 +422,9 @@ func (l *layouter) layoutBlockInner(b *Box, x, y, cbw float64, pending margins, 
 				restartAt = l.nextPageStart(top)
 			}
 		}
-		if restartAt > top {
+		// restartAt > y: a negative top margin can put top above the restart point
+		// again, so only restart when it moves the block's position forward.
+		if restartAt > top && restartAt > y {
 			l.items = l.items[:startLen]
 			l.marker = savedMarker
 			l.fc.restore(fcN, fcTop)

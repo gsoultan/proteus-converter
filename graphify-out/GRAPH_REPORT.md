@@ -1,9 +1,9 @@
 # Graph Report - proteus-converter  (2026-11-01)
 
 ## Corpus Check
-- 80 files · ~79,640 words
+- 80 files · ~79,732 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 9 file(s) not represented in the graph (top: .ttf 3, .otf 2, (none) 1)
+- Unclassified: 10 file(s) not represented in the graph (top: .ttf 3, (none) 2, .otf 2)
 
 ## Summary
 - 934 nodes · 3336 edges · 47 communities (35 shown, 12 thin omitted)
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `6294ca73`
+- Built from commit: `8759e736`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

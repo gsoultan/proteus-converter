@@ -5,7 +5,10 @@
   into *core.InternalError (ErrInternal, with stack). Limits: Config.MaxPages (default 10000,
   ErrTooManyPages via layout.Engine.MaxPages / Paginate error), images > 40 MP or > 32768 px a
   side refused with a warning (pipeline/images.go), css.MaxGridTracks = 1000 clamps grid lines,
-  spans and repeat(); x/net/html refuses nesting > 512. Paginate drops non-finite coordinates.
+  spans and repeat(); x/net/html refuses nesting > 512. layoutBlockInner only restarts a block on a
+  later page when that moves it forward (restartAt > y): a negative top margin used to loop forever
+  (fuzz seed testdata/fuzz/FuzzConvertHTML/a676d47999945e8f). HTML fuzzing runs only a few execs/s
+  (already so on main 2026-11-01). CI must install every system font a fixture names (Carlito). Paginate drops non-finite coordinates.
 - Tests: fuzz_test.go (FuzzConvertHTML/Markdown/CSS; 10s watchdog dumps stacks to
   $PROTEUS_FUZZ_HANG and panics so the fuzzer keeps the input), css/fuzz_test.go (FuzzParse),
   leak_test.go (TestNoLeaks, TestConcurrentConversions compares pdftotext -bbox output because
