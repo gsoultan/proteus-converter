@@ -37,6 +37,9 @@ type TextItem struct {
 	Size          float64
 	Color         css.Color
 	LetterSpacing float64
+	// Synthetic styles the face lacks (drawn like Chromium: stroked outlines
+	// for bold, a shear for italic).
+	SynthBold, SynthItalic bool
 }
 
 // Clip is a rounded-rectangle clip region; a zero width means no clipping.

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Web fonts</title>
+<style>
+  @page { size: A4; margin: 1.5cm; }
+  @font-face { font-family: "Brand Serif"; src: url(assets/fonts/Caladea-Regular.ttf) format("truetype"); font-weight: 400; }
+  @font-face { font-family: "Brand Serif"; src: url(assets/fonts/Caladea-Bold.ttf) format("truetype"); font-weight: 700; }
+  @font-face { font-family: "Brand Serif"; src: url(assets/fonts/Caladea-Italic.woff) format("woff"); font-style: italic; }
+  @font-face { font-family: "Brand Sans"; src: url(assets/fonts/Inter-Regular.otf) format("opentype"); }
+  @font-face { font-family: "Brand Sans"; src: url(assets/fonts/Inter-SemiBold.otf) format("opentype"); font-weight: 600; }
+  @font-face { font-family: "Code"; src: local("Nope"), url(assets/fonts/JetBrainsMono-Regular.ttf) format("truetype"); }
+  body { font-family: "Brand Serif", serif; font-size: 14px; color: #0f172a; line-height: 1.45; }
+  h1 { font-size: 32px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.5px; }
+  h2 { font-family: "DejaVu Sans", sans-serif; font-size: 16px; text-transform: uppercase; letter-spacing: 2px; color: #475569; margin: 18px 0 6px; }
+  .sub { font-style: italic; color: #475569; font-size: 16px; margin: 0 0 12px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+  .card { border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; }
+  .card b { display: block; font-family: sans-serif; font-size: 10px; color: #64748b; margin-bottom: 4px; }
+  .sans { font-family: "Liberation Sans", Arial, sans-serif; }
+  .serif2 { font-family: "DejaVu Serif", serif; }
+  .carlito { font-family: Carlito, sans-serif; }
+  .mono { font-family: "Code", monospace; font-size: 12px; }
+  .sizes span { margin-right: 10px; }
+  .spaced { letter-spacing: 3px; word-spacing: 8px; }
+  .caps { font-variant: small-caps; }
+  pre { font-family: "Code", monospace; font-size: 11px; background: #0f172a; color: #e2e8f0; padding: 10px 12px; border-radius: 6px; line-height: 1.5; white-space: pre; }
+  .weights span { font-family: "DejaVu Sans", sans-serif; }
+  .mixed { font-size: 15px; }
+  .mixed .a { font-family: "Brand Serif"; } .mixed .b { font-family: sans-serif; font-weight: bold; } .mixed .c { font-family: "Code"; font-size: 13px; } .mixed .d { font-family: Carlito; font-style: italic; }
+</style>
+</head>
+<body>
+<h1>Typefaces in print</h1>
+<p class="sub">Loaded with @font-face from local TrueType files, mixed with installed families.</p>
+<p>Brand Serif is the body face, with <b>bold</b>, <i>italic</i> and <b><i>bold italic</i></b> (the last one synthesised or fallen back). Ligatures such as fi, fl and ffi appear in words like office, affluent and fluffier. Numbers 0123456789 and punctuation &ldquo;quotes&rdquo; &mdash; dashes &ndash; ellipsis&hellip; all come from the same file.</p>
+<h2>Families side by side</h2>
+<div class="grid">
+  <div class="card"><b>Brand Serif (Caladea)</b>The quick brown fox jumps over the lazy dog.</div>
+  <div class="card sans"><b>Liberation Sans</b>The quick brown fox jumps over the lazy dog.</div>
+  <div class="card serif2"><b>DejaVu Serif</b>The quick brown fox jumps over the lazy dog.</div>
+  <div class="card carlito"><b>Carlito</b>The quick brown fox jumps over the lazy dog.</div>
+  <div class="card" style="font-family: 'Brand Sans', sans-serif"><b>Inter (OpenType CFF)</b>The quick brown fox jumps over the lazy dog.</div>
+  <div class="card" style="font-family: 'Brand Sans', sans-serif; font-weight: 600"><b>Inter SemiBold</b>Kerning: AVATAR, Type, Yo, We, LT.</div>
+</div>
+<h2>Sizes and spacing</h2>
+<p class="sizes"><span style="font-size:9px">9px</span><span style="font-size:12px">12px</span><span style="font-size:16px">16px</span><span style="font-size:22px">22px</span><span style="font-size:30px">30px</span><span style="font-size:40px">40px</span></p>
+<p class="spaced">Letter spacing three pixels and word spacing eight pixels.</p>
+<p class="caps">Small caps For Headings And Labels</p>
+<p class="weights"><span style="font-weight:300">Light 300</span> · <span style="font-weight:400">Regular 400</span> · <span style="font-weight:600">Semibold 600</span> · <span style="font-weight:700">Bold 700</span> · <span style="font-weight:900">Black 900</span></p>
+<p class="mixed"><span class="a">Serif words,</span> <span class="b">bold sans words,</span> <span class="c">monospace_code()</span> <span class="d">and Carlito italic</span> on one line that wraps across two lines because it keeps going for a while.</p>
+<h2>Code</h2>
+<pre>func Convert(ctx context.Context, in io.Reader) ([]byte, error) {
+    doc, err := html.Parse(in)   // parse once
+    if err != nil {
+        return nil, fmt.Errorf("parse: %w", err)
+    }
+    return render(doc), nil
+}</pre>
+<p class="mono">Inline JetBrains Mono paragraph: il1| O0o {}[]() =&gt; != ===</p>
+</body>
+</html>

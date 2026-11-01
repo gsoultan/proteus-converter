@@ -24,11 +24,14 @@
   (wrap, grow/shrink, justify/align, order, reverse, gaps), grid (fr, minmax, repeat,
   auto-fill/auto-fit, named areas, line placement, spans, implicit tracks, row auto-flow),
   inline and file SVG (svg package), <img> with object-fit/position, background-image with
-  size/position/repeat/origin/clip, linear-gradient, rounded uniform borders.
+  size/position/repeat/origin/clip, linear-gradient, rounded borders (per-corner radii for uniform
+  borders and backgrounds), box-shadow, outline, ::first-letter, percentage heights, small-caps,
+  synthetic bold/italic, @font-face TrueType/OpenType-CFF/WOFF 1.0, GPOS kerning (gpdf).
 - Unsupported / approximated: quirks-mode UA margins (use <!DOCTYPE html>), grid-auto-flow column
   and dense, radial/conic gradients, SVG gradients (average stop color, with a warning), SVG
-  filters/masks/clipPath, overflow clipping of text, canvas/video, WOFF/CFF,
-  hierarchical outlines, synthetic bold/italic, text alpha, @page :first, counters.
+  filters/masks/clipPath, overflow clipping of text, canvas/video, WOFF2, contextual alternates
+  (calt, e.g. JetBrains Mono "!=" ligatures), inset box-shadow, ::first-line, CSS columns,
+  hierarchical outlines, text alpha, @page :first, counters, % heights inside tables/grid items.
   Mitered corners for differently coloured border sides, inset/outset shading and Blink's
   double-border line widths are approximated. Trailing blank space (e.g. a tall empty div at
   the end) does not create extra pages the way Chromium does.

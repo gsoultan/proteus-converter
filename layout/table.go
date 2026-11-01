@@ -2,6 +2,7 @@ package layout
 
 import (
 	"math"
+	"sort"
 
 	"github.com/gsoultan/proteus-converter/css"
 )
@@ -155,6 +156,10 @@ func (l *layouter) tableIntrinsic(t *Box) (float64, float64) {
 }
 
 func (l *layouter) layoutTable(t *Box, x, y, cbw float64, pending margins, forced float64) blockResult {
+	// percentage heights inside cells are not resolved (they act as auto)
+	savedPctOK := l.pctOK
+	l.pctOK = false
+	defer func() { l.pctOK = savedPctOK }()
 	rows, ncols, captions := tableGrid(t)
 	s := t.Style // after tableGrid, which rewrites it for collapsed borders
 	hs, vs := tableSpacing(s)
@@ -238,6 +243,10 @@ func (l *layouter) layoutTable(t *Box, x, y, cbw float64, pending margins, force
 		ml = math.Max((cbw-tableW)/2, 0)
 	} else if e.mlAuto {
 		ml = math.Max(cbw-tableW-e.mr, 0)
+	} else if !e.mrAuto {
+		le := edges{}
+		legacyAlign(s, &le, cbw-tableW-e.ml-e.mr)
+		ml += le.ml
 	}
 	tx := x + ml
 	top := l.afterMargin(y, pending)
@@ -547,13 +556,30 @@ func (l *layouter) measureRows(rows []*trow, colX, widths []float64, hs, vs floa
 		}
 		heights[i] = h
 	}
+	// Blink (TablesNG) handles shorter spans first and spreads the excess
+	// over the spanned rows in proportion to their heights (evenly when they
+	// are all empty).
+	sort.SliceStable(spans, func(a, b int) bool {
+		return spans[a].last-spans[a].first < spans[b].last-spans[b].first
+	})
 	for _, sp := range spans {
 		have := vs * float64(sp.last-sp.first)
+		sum := 0.0
 		for i := sp.first; i <= sp.last; i++ {
-			have += heights[i]
+			sum += heights[i]
 		}
-		if sp.h > have {
-			heights[sp.last] += sp.h - have
+		have += sum
+		if sp.h <= have {
+			continue
+		}
+		excess := sp.h - have
+		n := float64(sp.last - sp.first + 1)
+		for i := sp.first; i <= sp.last; i++ {
+			if sum > 0 {
+				heights[i] += excess * heights[i] / sum
+			} else {
+				heights[i] += excess / n
+			}
 		}
 	}
 	return heights

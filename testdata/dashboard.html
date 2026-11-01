@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dashboard</title>
+<style>
+  @page { size: A4 landscape; margin: 1cm; }
+  * { box-sizing: border-box; }
+  body { font-family: sans-serif; font-size: 12px; color: #0f172a; margin: 0; }
+  .app { display: grid; grid-template-columns: 170px 1fr; grid-template-rows: auto 1fr; grid-template-areas: "side top" "side main"; gap: 12px; }
+  .top { grid-area: top; display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #0f172a; color: #f8fafc; border-radius: 8px; }
+  .top h1 { font-size: 18px; margin: 0; flex: 1; }
+  .top .user { display: flex; align-items: center; gap: 8px; }
+  .top .user img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid #38bdf8; }
+  .side { grid-area: side; background: #f1f5f9; border-radius: 8px; padding: 12px; }
+  .side img { width: 100%; height: auto; margin-bottom: 10px; }
+  .side ul { list-style: none; margin: 0; padding: 0; }
+  .side li { padding: 6px 8px; border-radius: 4px; margin-bottom: 2px; }
+  .side li.on { background: #2563eb; color: #fff; font-weight: bold; }
+  .main { grid-area: main; }
+  .kpis { display: flex; gap: 12px; }
+  .kpi { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; position: relative; }
+  .kpi .v { font-size: 22px; font-weight: bold; margin-top: 4px; }
+  .kpi .d { font-size: 11px; color: #16a34a; }
+  .kpi .d.neg { color: #dc2626; }
+  .kpi img { position: absolute; top: 10px; right: 10px; width: 18px; height: 18px; }
+  .row { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-top: 12px; }
+  .panel { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+  .panel h2 { font-size: 13px; margin: 0 0 8px; }
+  .bars { display: flex; align-items: flex-end; gap: 6px; height: 110px; border-bottom: 1px solid #94a3b8; padding: 0 4px; }
+  .bars div { flex: 1; background: linear-gradient(#60a5fa, #1d4ed8); border-radius: 3px 3px 0 0; }
+  .labels { display: flex; gap: 6px; padding: 2px 4px 0; }
+  .labels span { flex: 1; text-align: center; font-size: 9px; color: #64748b; }
+  .people .p { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed #e2e8f0; }
+  .people img { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; }
+  .people .n { flex: 1; } .people .n small { display: block; color: #64748b; }
+  .pill { padding: 2px 8px; border-radius: 999px; font-size: 10px; background: #dcfce7; color: #166534; }
+  .floatbox { margin-top: 12px; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; }
+  .floatbox img { float: left; width: 90px; height: 60px; object-fit: cover; margin-right: 10px; border-radius: 4px; }
+  .floatbox .r { float: right; width: 120px; padding: 6px; background: #fef9c3; margin-left: 10px; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top"><h1>Operations overview</h1><span>Week 44</span><div class="user"><img src="assets/portrait.jpg" alt="">Ada Moreno</div></div>
+  <div class="side">
+    <img src="assets/logo.png" alt="logo">
+    <ul><li class="on">Overview</li><li>Orders</li><li>Inventory</li><li>Customers</li><li>Reports</li><li>Settings</li></ul>
+  </div>
+  <div class="main">
+    <div class="kpis">
+      <div class="kpi"><img src="assets/icon-check.png" alt="">Revenue<div class="v">$48,210</div><div class="d">+12.4% vs last week</div></div>
+      <div class="kpi"><img src="assets/icon-warn.png" alt="">Orders<div class="v">1,284</div><div class="d neg">&minus;3.1% vs last week</div></div>
+      <div class="kpi"><img src="assets/icon-check.png" alt="">Conversion<div class="v">3.8%</div><div class="d">+0.4 pts</div></div>
+      <div class="kpi"><img src="assets/icon-x.png" alt="">Refunds<div class="v">27</div><div class="d neg">+5 vs last week</div></div>
+    </div>
+    <div class="row">
+      <div class="panel"><h2>Daily revenue</h2>
+        <div class="bars"><div style="height:40%"></div><div style="height:65%"></div><div style="height:50%"></div><div style="height:80%"></div><div style="height:95%"></div><div style="height:70%"></div><div style="height:30%"></div></div>
+        <div class="labels"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+      </div>
+      <div class="panel people"><h2>Top sellers</h2>
+        <div class="p"><img src="assets/product-1.jpg" alt=""><div class="n">Aurora lamp<small>312 sold</small></div><span class="pill">+18%</span></div>
+        <div class="p"><img src="assets/product-2.jpg" alt=""><div class="n">Meadow planter<small>244 sold</small></div><span class="pill">+9%</span></div>
+        <div class="p"><img src="assets/product-3.jpg" alt=""><div class="n">Delta speaker<small>198 sold</small></div><span class="pill">+4%</span></div>
+      </div>
+    </div>
+    <div class="floatbox"><img src="assets/landscape.jpg" alt=""><div class="r">Note: the warehouse in Lyon closes early on Friday for inventory.</div><b>Shipping update.</b> Carrier pickups moved to 15:00 for the rest of the month. Orders placed before noon still leave the same day, and tracking numbers are emailed as soon as the label prints. Text wraps between a left image float and a right note float.</div>
+  </div>
+</div>
+</body>
+</html>

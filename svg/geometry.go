@@ -91,6 +91,39 @@ func ellipse(cx, cy, rx, ry float64) []Seg {
 // RoundRect returns a rectangle path with elliptical corners.
 func RoundRect(x, y, w, h, rx, ry float64) []Seg { return roundRect(x, y, w, h, rx, ry) }
 
+// RoundRect4 returns a rectangle path with circular corners of radius
+// r[0] top-left, r[1] top-right, r[2] bottom-right and r[3] bottom-left,
+// scaled down together when they do not fit (CSS border-radius rules).
+func RoundRect4(x, y, w, h float64, r [4]float64) []Seg {
+	f := 1.0
+	for _, p := range [][3]float64{{r[0], r[1], w}, {r[3], r[2], w}, {r[0], r[3], h}, {r[1], r[2], h}} {
+		if s := p[0] + p[1]; s > p[2] && s > 0 {
+			f = min(f, p[2]/s)
+		}
+	}
+	for i := range r {
+		r[i] = max(r[i]*f, 0)
+	}
+	tl, tr, br, bl := r[0], r[1], r[2], r[3]
+	segs := []Seg{{Op: 'M', Pts: [6]float64{x + tl, y}}, {Op: 'L', Pts: [6]float64{x + w - tr, y}}}
+	if tr > 0 {
+		segs = append(segs, Seg{Op: 'C', Pts: [6]float64{x + w - tr + tr*kappa, y, x + w, y + tr - tr*kappa, x + w, y + tr}})
+	}
+	segs = append(segs, Seg{Op: 'L', Pts: [6]float64{x + w, y + h - br}})
+	if br > 0 {
+		segs = append(segs, Seg{Op: 'C', Pts: [6]float64{x + w, y + h - br + br*kappa, x + w - br + br*kappa, y + h, x + w - br, y + h}})
+	}
+	segs = append(segs, Seg{Op: 'L', Pts: [6]float64{x + bl, y + h}})
+	if bl > 0 {
+		segs = append(segs, Seg{Op: 'C', Pts: [6]float64{x + bl - bl*kappa, y + h, x, y + h - bl + bl*kappa, x, y + h - bl}})
+	}
+	segs = append(segs, Seg{Op: 'L', Pts: [6]float64{x, y + tl}})
+	if tl > 0 {
+		segs = append(segs, Seg{Op: 'C', Pts: [6]float64{x, y + tl - tl*kappa, x + tl - tl*kappa, y, x + tl, y}})
+	}
+	return append(segs, Seg{Op: 'Z'})
+}
+
 func roundRect(x, y, w, h, rx, ry float64) []Seg {
 	if rx <= 0 || ry <= 0 {
 		return []Seg{
