@@ -12,9 +12,9 @@
     "semantic_hash": ""
   },
   "accuracy/run.sh": {
-    "mtime": 1793530396.1203358,
-    "seen": 1793532894.2463057,
-    "ast_hash": "12a1f05d5b1c23872964fb9ea013e79e",
+    "mtime": 1793534288.9969518,
+    "seen": 1793534425.4492798,
+    "ast_hash": "bf1ae2455851744350f6dda1313c6d86",
     "semantic_hash": ""
   },
   "cmd/proteus/main.go": {
@@ -444,9 +444,9 @@
     "semantic_hash": ""
   },
   ".serena/memories/accuracy_and_blink_quirks.md": {
-    "mtime": 1793534088.526373,
-    "seen": 1793534089.626285,
-    "ast_hash": "d1d9c044f6940cf1def79665cc8fa9ac",
+    "mtime": 1793534424.5051632,
+    "seen": 1793534425.4493868,
+    "ast_hash": "a8368195118e51675a2a0e9b1f0ca9e5",
     "semantic_hash": ""
   },
   ".serena/memories/conventions_and_gaps.md": {

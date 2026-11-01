@@ -17,7 +17,8 @@ newsletter (email-style nested tables with align/bgcolor/cellpadding/border attr
 Current (2026-11-01): all words found; >= 99.2% within 2pt (median 0.02-0.62pt); raw <= 2.9%;
 near <= 0.35% (floats). textdiff compares words case-insensitively (synthetic small caps).
 CI pins playwright 1.63.0 (Chromium build 1243, same as the dev container); Chromium 130 renders
-the webfonts fixture differently (264 vs 262 words), so keep CI and local on the same Chromium.
+the webfonts fixture differently (264 vs 262 words), so keep CI and local on the same Chromium. accuracy/fonts.conf also forces unhinted rendering: with
+the runner's hinting, Chromium rounded JetBrains Mono advances to whole px (code moved up to 19pt).
 Debug loop: render one file with both (node accuracy/chromium.cjs in.html out.pdf; proteus -q),
 then textdiff -v and a side-by-side pdftoppm image.
 Page area (pipeline.go, measured 2026-11-01): Chromium starts the page area at the @page margins
