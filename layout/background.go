@@ -46,10 +46,21 @@ func (l *layouter) emitBackgroundCB(b *Box, x, y, w, h, cbw float64) {
 	}
 	border, padding, content := boxAreas(s, x, y, w, h, cbw)
 	radius := s.BorderRadius[0].Resolve(w, 0)
+	l.emitShadows(s, x, y, w, h, math.Min(radius, math.Min(w, h)/2), b != l.e.canvasBox && s.BackgroundColor.A >= 1)
 	clip := pickArea(s.BackgroundClip, border, padding, content)
 	clip.Radius = math.Max(0, radius-(clip.X-x))
 	if b != l.e.canvasBox && !s.BackgroundColor.IsTransparent() && clip.W > 0 && clip.H > 0 {
-		l.emit(&RectItem{X: clip.X, Y: clip.Y, W: clip.W, H: clip.H, Color: s.BackgroundColor, Radius: clip.Radius})
+		if r, mixed := cornerRadii(s, w, h); mixed {
+			in := clip.X - x
+			for i := range r {
+				r[i] = math.Max(r[i]-in, 0)
+			}
+			c := s.BackgroundColor
+			l.emit(&PathItem{M: svg.Identity, Segs: svg.RoundRect4(clip.X, clip.Y, clip.W, clip.H, r),
+				Style: PathStyle{Fill: &c}, Top: clip.Y})
+		} else {
+			l.emit(&RectItem{X: clip.X, Y: clip.Y, W: clip.W, H: clip.H, Color: s.BackgroundColor, Radius: clip.Radius})
+		}
 	}
 	area := pickArea(s.BackgroundOrigin, border, padding, content)
 	if area.W <= 0 || area.H <= 0 || clip.W <= 0 || clip.H <= 0 {
@@ -399,4 +410,121 @@ func (l *layouter) emitGradient(v string, area, clip Clip) {
 		}
 	}
 	emitStrip(gl-0.01, gl+ext, sample(1))
+}
+
+// emitShadows paints the outer box-shadows of a border box, last layer
+// first. A blur is approximated by stacked translucent rounded rectangles
+// whose combined opacity follows the Gaussian edge profile (sigma = blur/2).
+// Inset shadows are not painted.
+func (l *layouter) emitShadows(s *css.Style, x, y, w, h, radius float64, opaque bool) {
+	hole := Clip{X: x, Y: y, W: w, H: h, Radius: radius}
+	fill := func(r Clip, c css.Color) {
+		if opaque {
+			// the box's own background covers the part under it
+			l.emit(&RectItem{X: r.X, Y: r.Y, W: r.W, H: r.H, Color: c, Radius: r.Radius})
+			return
+		}
+		l.shadowOutside(r, hole, c)
+	}
+	for i := len(s.BoxShadow) - 1; i >= 0; i-- {
+		sh := s.BoxShadow[i]
+		if sh.Inset || sh.Color.A <= 0 {
+			continue
+		}
+		sx, sy := x+sh.X-sh.Spread, y+sh.Y-sh.Spread
+		sw, shh := w+2*sh.Spread, h+2*sh.Spread
+		r := radius
+		if r > 0 {
+			r = math.Max(r+sh.Spread, 0)
+		}
+		if sh.Blur <= 0 {
+			if sw > 0 && shh > 0 {
+				fill(Clip{X: sx, Y: sy, W: sw, H: shh, Radius: r}, sh.Color)
+			}
+			continue
+		}
+		n := int(math.Min(32, math.Max(3, math.Ceil(sh.Blur/0.75/1.5))))
+		step := 2 * sh.Blur / float64(n)
+		sigma := sh.Blur / 2
+		prev := 0.0
+		for k := range n {
+			t := -sh.Blur + step*float64(k) // inset of this layer (negative = grown)
+			target := sh.Color.A * normCDF((t+step)/sigma)
+			if k == n-1 {
+				target = sh.Color.A
+			}
+			alpha := 1 - (1-target)/(1-prev)
+			prev = target
+			lw, lh := sw-2*t, shh-2*t
+			if alpha <= 0 || lw <= 0 || lh <= 0 {
+				continue
+			}
+			c := sh.Color
+			c.A = math.Min(alpha, 1)
+			fill(Clip{X: sx + t, Y: sy + t, W: lw, H: lh, Radius: math.Max(r-t, 0)}, c)
+		}
+	}
+}
+
+// shadowOutside fills the part of r outside the border box hole (an outer
+// box-shadow never shows through the box itself).
+func (l *layouter) shadowOutside(r, hole Clip, c css.Color) {
+	inside := hole.X >= r.X && hole.Y >= r.Y && hole.X+hole.W <= r.X+r.W && hole.Y+hole.H <= r.Y+r.H
+	if inside {
+		segs := append(svg.RoundRect(r.X, r.Y, r.W, r.H, r.Radius, r.Radius),
+			svg.RoundRect(hole.X, hole.Y, hole.W, hole.H, hole.Radius, hole.Radius)...)
+		col := c
+		l.emit(&PathItem{M: svg.Identity, Segs: segs, Style: PathStyle{Fill: &col, EvenOdd: true}, Top: r.Y})
+		return
+	}
+	// the hole sticks out: fill the bands of r around it (corner radii ignored)
+	x0, y0, x1, y1 := r.X, r.Y, r.X+r.W, r.Y+r.H
+	hx0, hy0 := math.Max(hole.X, x0), math.Max(hole.Y, y0)
+	hx1, hy1 := math.Min(hole.X+hole.W, x1), math.Min(hole.Y+hole.H, y1)
+	if hx0 >= hx1 || hy0 >= hy1 {
+		l.emit(&RectItem{X: r.X, Y: r.Y, W: r.W, H: r.H, Color: c, Radius: r.Radius})
+		return
+	}
+	band := func(x, y, w, h float64) {
+		if w > 0 && h > 0 {
+			l.emit(&RectItem{X: x, Y: y, W: w, H: h, Color: c})
+		}
+	}
+	band(x0, y0, x1-x0, hy0-y0)
+	band(x0, hy1, x1-x0, y1-hy1)
+	band(x0, hy0, hx0-x0, hy1-hy0)
+	band(hx1, hy0, x1-hx1, hy1-hy0)
+}
+
+// normCDF is the standard normal cumulative distribution function.
+func normCDF(x float64) float64 { return 0.5 * (1 + math.Erf(x/math.Sqrt2)) }
+
+// emitOutline paints the outline of a border box (outside it, past
+// outline-offset), following the border radius like Chromium.
+func (l *layouter) emitOutline(s *css.Style, x, y, w, h float64) {
+	ow := s.OutlineUsed()
+	if ow <= 0 || s.Visibility != "visible" || s.OutlineColor.IsTransparent() {
+		return
+	}
+	d := s.OutlineOffset + ow
+	o := *s
+	for i := range 4 {
+		o.BorderWidth[i], o.BorderStyle[i], o.BorderColor[i] = ow, s.OutlineStyle, s.OutlineColor
+		if r := s.BorderRadius[i].Resolve(w, 0); r > 0 {
+			o.BorderRadius[i] = css.Pt(math.Max(r+d, 0))
+		}
+	}
+	l.emitBorders(&o, x-d, y-d, w+2*d, h+2*d, [4]bool{true, true, true, true})
+}
+
+// cornerRadii returns the four resolved corner radii of a w x h border box
+// and whether they differ from each other.
+func cornerRadii(s *css.Style, w, h float64) (r [4]float64, mixed bool) {
+	for i := range r {
+		r[i] = s.BorderRadius[i].Resolve(w, 0)
+		if i > 0 && r[i] != r[0] {
+			mixed = true
+		}
+	}
+	return r, mixed
 }

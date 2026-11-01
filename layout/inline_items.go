@@ -109,6 +109,17 @@ func (fb *fragBuilder) walk(boxes []*Box, ctx *inlineCtx, parentStyle *css.Style
 			}
 			parentSize := parentStyle.FontSize
 			c.shift += verticalShift(s, parentSize, fb.l.e.styleMetrics(s).lh)
+			switch s.VerticalAlign {
+			case "text-top", "text-bottom":
+				// the inline box's top (bottom) meets the parent's content area top (bottom)
+				pm, m := fb.l.e.styleMetrics(parentStyle), fb.l.e.styleMetrics(s)
+				half := (m.lh - m.ascent - m.descent) / 2
+				if s.VerticalAlign == "text-top" {
+					c.shift += m.ascent + half - pm.ascent
+				} else {
+					c.shift += pm.descent - m.descent - half
+				}
+			}
 			c.ml = s.Margin[css.Left].Resolve(fb.avail, 0)
 			c.mr = s.Margin[css.Right].Resolve(fb.avail, 0)
 			c.bl, c.br = s.BorderUsed(css.Left), s.BorderUsed(css.Right)
@@ -205,7 +216,11 @@ func (fb *fragBuilder) text(b *Box, ctx *inlineCtx) {
 			return
 		}
 		w := applyTransform(word.String(), s.TextTransform, &fb.capNext)
-		fb.push(fb.l.textFrag(w, s, ctx, b.Decorations, breakAfter && wrap))
+		if s.FontVariant == "small-caps" {
+			fb.pushSmallCaps(w, s, ctx, b.Decorations, breakAfter && wrap)
+		} else {
+			fb.push(fb.l.textFrag(w, s, ctx, b.Decorations, breakAfter && wrap))
+		}
 		word.Reset()
 		fb.lastSpace = false
 	}
@@ -263,6 +278,45 @@ func (fb *fragBuilder) text(b *Box, ctx *inlineCtx) {
 		}
 	}
 	flushWord(false)
+}
+
+// pushSmallCaps synthesises small capitals like Blink: lowercase letters are
+// drawn as capitals at 70% of the font size.
+func (fb *fragBuilder) pushSmallCaps(w string, s *css.Style, ctx *inlineCtx, decos []Decoration, breakAfter bool) {
+	small := fb.l.e.smallCapsStyle(s)
+	start, lower := 0, false
+	flush := func(end int, last bool) {
+		if end <= start {
+			return
+		}
+		seg, st := w[start:end], s
+		if lower {
+			seg, st = strings.ToUpper(seg), small
+		}
+		f := fb.l.textFrag(seg, st, ctx, decos, last && breakAfter)
+		fb.push(f)
+	}
+	for i, r := range w {
+		l := unicode.IsLower(r)
+		if i > start && l != lower {
+			flush(i, false)
+			start = i
+		}
+		lower = l
+	}
+	flush(len(w), true)
+}
+
+// smallCapsStyle returns (and caches) s at the synthetic small-caps size.
+func (e *Engine) smallCapsStyle(s *css.Style) *css.Style {
+	if c, ok := e.smallCaps[s]; ok {
+		return c
+	}
+	c := *s
+	c.FontSize = s.FontSize * 0.7
+	c.FontVariant = "normal"
+	e.smallCaps[s] = &c
+	return &c
 }
 
 // textFrag measures text in the style's font chain.

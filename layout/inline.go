@@ -202,6 +202,15 @@ func (l *layouter) measureLine(lb *lineBox, block *css.Style) {
 				minTop = math.Min(minTop, top)
 				maxBot = math.Max(maxBot, top+a.h)
 				continue
+			case "text-top", "text-bottom":
+				ps := block
+				if f.ctx != nil {
+					ps = f.ctx.style
+				}
+				top := textEdgeTop(l.e.styleMetrics(ps), a, shift)
+				minTop = math.Min(minTop, top)
+				maxBot = math.Max(maxBot, top+a.h)
+				continue
 			case "length", "sub", "super":
 				shift += a.valignLen
 			}
@@ -220,6 +229,15 @@ func (l *layouter) measureLine(lb *lineBox, block *css.Style) {
 	}
 	lb.baseline = -minTop
 	lb.height = maxBot - minTop
+}
+
+// textEdgeTop returns the top of an atomic box aligned with vertical-align
+// text-top or text-bottom, relative to the baseline, in a parent with metrics pm.
+func textEdgeTop(pm styleMetrics, a *atomicBox, shift float64) float64 {
+	if a.valign == "text-top" {
+		return shift - pm.ascent
+	}
+	return shift + pm.descent - a.h
 }
 
 // placeLines assigns a top position to every line, honouring page breaks,
@@ -580,11 +598,24 @@ func (l *layouter) emitTextFrag(f *frag, x, baseline float64) {
 	for _, r := range f.runs {
 		merged := l.mergeText(r.Text, r.Face, f, x, by)
 		if !merged && f.kind != fSpace {
+			sb, si := synthesis(f.style, r.Face)
 			l.emit(&TextItem{X: x, Baseline: by, Text: r.Text, Face: r.Face, Size: f.style.FontSize,
-				Color: f.style.Color, LetterSpacing: f.style.LetterSpacing})
+				Color: f.style.Color, LetterSpacing: f.style.LetterSpacing, SynthBold: sb, SynthItalic: si})
 		}
 		x += r.Face.Width(r.Text, f.style.FontSize) + f.style.LetterSpacing*float64(len([]rune(r.Text)))
 	}
+}
+
+// synthesis reports whether bold and italic must be synthesised because the
+// face chosen for s lacks them (Blink: weight >= 600 on a face below 600,
+// italic/oblique on an upright face). Standard-14 faces are never synthesised.
+func synthesis(s *css.Style, face *fonts.Face) (bold, italic bool) {
+	if face == nil || face.IsStandard() {
+		return false, false
+	}
+	bold = s.FontWeight >= 600 && face.Weight < 600
+	italic = (s.FontStyle == "italic" || s.FontStyle == "oblique") && !face.Italic
+	return bold, italic
 }
 
 // mergeText appends text to the previous text item when it continues it exactly.
@@ -593,7 +624,9 @@ func (l *layouter) mergeText(text string, face *fonts.Face, f *frag, x, baseline
 		return false
 	}
 	prev, ok := l.items[len(l.items)-1].(*TextItem)
+	sb, si := synthesis(f.style, face)
 	if !ok || prev.Face != face || prev.Size != f.style.FontSize || prev.Color != f.style.Color ||
+		prev.SynthBold != sb || prev.SynthItalic != si ||
 		prev.LetterSpacing != f.style.LetterSpacing || math.Abs(prev.Baseline-baseline) > eps {
 		return false
 	}

@@ -26,6 +26,7 @@ func init() {
 		all = append(all, l...)
 	}
 	shorthandLonghands["border"] = all
+	shorthandLonghands["outline"] = []string{"outline-width", "outline-style", "outline-color"}
 	shorthandLonghands["font"] = []string{"font-style", "font-variant", "font-weight", "font-size", "line-height", "font-family"}
 	shorthandLonghands["background"] = []string{"background-color", "background-image", "background-size",
 		"background-position", "background-repeat", "background-origin", "background-clip"}
@@ -169,7 +170,7 @@ func expandShorthand(name, value string) map[string]string {
 			toks = append(toks, toks[0])
 		}
 		return map[string]string{"overflow-x": toks[0], "overflow-y": toks[1]}
-	case "border", "border-top", "border-right", "border-bottom", "border-left", "border-block", "border-inline":
+	case "border", "border-top", "border-right", "border-bottom", "border-left", "border-block", "border-inline", "outline":
 		w, st, col := "medium", "none", "currentcolor"
 		for _, t := range toks {
 			lt := strings.ToLower(t)

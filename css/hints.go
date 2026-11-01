@@ -80,13 +80,17 @@ func PresentationalHints(n *html.Node) []Declaration {
 			}
 		}
 	}
+	// Blink maps align on these elements to the -webkit-* values, which
+	// also align block-level children.
 	align := func() {
 		if v, ok := attr(n, "align"); ok {
 			switch strings.ToLower(v) {
-			case "left", "right", "center", "justify":
-				add("text-align", strings.ToLower(v))
+			case "left", "right", "center":
+				add("text-align", "-webkit-"+strings.ToLower(v))
 			case "middle":
-				add("text-align", "center")
+				add("text-align", "-webkit-center")
+			case "justify":
+				add("text-align", "justify")
 			}
 		}
 	}
@@ -170,7 +174,11 @@ func PresentationalHints(n *html.Node) []Declaration {
 			}
 			if v, ok := attr(t, "border"); ok {
 				if l, ok := htmlLength(v); !ok || l != "0px" {
-					add("border", "1px inset")
+					// width and style only: Blink makes the colour inherit
+					// (through tr/tbody) from the table
+					add("border-width", "1px")
+					add("border-style", "inset")
+					add("border-color", "inherit")
 				}
 			}
 		}

@@ -45,20 +45,26 @@ type Style struct {
 	FontVariant string
 	keywordSize float64 // unscaled size when font-size came from a keyword (monospace quirk)
 
-	LineHeight     LineHeight
-	TextAlign      string
-	TextAlignLast  string
-	TextIndent     Length
-	TextTransform  string
-	WhiteSpace     string
-	LetterSpacing  float64
-	WordSpacing    float64
-	VerticalAlign  string
-	VerticalLength Length // when VerticalAlign == "length"
-	OverflowWrap   string
-	WordBreak      string
-	Hyphens        string
-	Direction      string
+	LineHeight    LineHeight
+	TextAlign     string
+	TextAlignLast string
+	// TextAlignLegacy is "left", "center" or "right" when text-align came from
+	// -webkit-left/-webkit-center/-webkit-right (HTML align attributes): block
+	// children without auto margins are aligned too, and tables reset it.
+	TextAlignLegacy string
+	// ParentAlignLegacy is the parent's TextAlignLegacy (not inherited).
+	ParentAlignLegacy string
+	TextIndent        Length
+	TextTransform     string
+	WhiteSpace        string
+	LetterSpacing     float64
+	WordSpacing       float64
+	VerticalAlign     string
+	VerticalLength    Length // when VerticalAlign == "length"
+	OverflowWrap      string
+	WordBreak         string
+	Hyphens           string
+	Direction         string
 
 	TextDecorationLine  Decoration
 	TextDecorationColor *Color // nil means currentColor
@@ -70,6 +76,12 @@ type Style struct {
 	BorderStyle  [4]string
 	BorderColor  [4]Color
 	BorderRadius [4]Length // top-left, top-right, bottom-right, bottom-left
+
+	OutlineWidth  float64
+	OutlineStyle  string
+	OutlineColor  Color
+	OutlineOffset float64
+	BoxShadow     []Shadow
 
 	Width, Height       Length
 	MinWidth, MinHeight Length
@@ -216,6 +228,9 @@ func (s *Style) resetNonInherited() {
 	s.BorderStyle = [4]string{"none", "none", "none", "none"}
 	s.BorderColor = [4]Color{}
 	s.BorderRadius = [4]Length{}
+	s.OutlineWidth, s.OutlineStyle, s.OutlineOffset = 2.25, "none", 0
+	s.OutlineColor = Color{} // currentColor, resolved in the cascade
+	s.BoxShadow = nil
 	s.Width, s.Height = Auto, Auto
 	s.MinWidth, s.MinHeight = Length{}, Length{}
 	s.MaxWidth, s.MaxHeight = Auto, Auto
@@ -287,4 +302,20 @@ func (s *Style) DecorationColor() Color {
 		return *s.TextDecorationColor
 	}
 	return s.Color
+}
+
+// Shadow is one box-shadow layer (lengths in points).
+type Shadow struct {
+	X, Y, Blur, Spread float64
+	Color              Color
+	Inset              bool
+}
+
+// OutlineUsed returns the painted outline width (0 when there is none).
+func (s *Style) OutlineUsed() float64 {
+	switch s.OutlineStyle {
+	case "none", "hidden", "":
+		return 0
+	}
+	return s.OutlineWidth
 }

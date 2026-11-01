@@ -144,6 +144,12 @@ func (l *layouter) emitLine(lb *lineBox, x0, width float64, block *css.Style) {
 					ps = f.ctx.style
 				}
 				top = baseline + shift - l.e.styleMetrics(ps).xHeight/2 - a.h/2
+			case "text-top", "text-bottom":
+				ps := block
+				if f.ctx != nil {
+					ps = f.ctx.style
+				}
+				top = baseline + textEdgeTop(l.e.styleMetrics(ps), a, shift)
 			default:
 				top = baseline + shift + a.valignLen - a.baseline
 			}

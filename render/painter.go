@@ -19,7 +19,7 @@ type Painter interface {
 	FillRect(x, y, w, h, radius float64, c css.Color)
 	Line(x1, y1, x2, y2, width float64, c css.Color, dash []float64)
 	Ellipse(x, y, w, h float64, c css.Color, stroke float64)
-	Text(x, baseline float64, text string, face *fonts.Face, size float64, c css.Color, letterSpacing float64)
+	Text(x, baseline float64, text string, face *fonts.Face, size float64, c css.Color, letterSpacing float64, synth Synthesis)
 	// Image draws a raster image, clipped to clip when clip.Active(). Images
 	// are painted in call order with the other graphics (under all text).
 	Image(x, y, w, h float64, img *layout.Image, clip layout.Clip)
@@ -36,7 +36,8 @@ type Painter interface {
 type Document struct {
 	PageWidth, PageHeight float64
 	MarginTop, MarginLeft float64
-	Background            *css.Color // canvas background, painted over the whole page
+	ContentW, ContentH    float64    // page area; zero means the whole page
+	Background            *css.Color // canvas background, painted over the page area like Chromium
 	Pages                 []*layout.Page
 }
 
@@ -45,7 +46,13 @@ func Paint(d *Document, p Painter, w io.Writer) error {
 	for _, pg := range d.Pages {
 		p.BeginPage(d.PageWidth, d.PageHeight)
 		if d.Background != nil {
-			p.FillRect(0, 0, d.PageWidth, d.PageHeight, 0, *d.Background)
+			// Chromium leaves the @page margins blank: the canvas
+			// background only covers the page area.
+			if d.ContentW > 0 && d.ContentH > 0 {
+				p.FillRect(d.MarginLeft, d.MarginTop, d.ContentW, d.ContentH, 0, *d.Background)
+			} else {
+				p.FillRect(0, 0, d.PageWidth, d.PageHeight, 0, *d.Background)
+			}
 		}
 		ox, oy := d.MarginLeft, d.MarginTop
 		for _, it := range pg.Items {
@@ -57,7 +64,8 @@ func Paint(d *Document, p Painter, w io.Writer) error {
 			case *layout.EllipseItem:
 				p.Ellipse(ox+v.X, oy+v.Y, v.W, v.H, v.Color, v.Stroke)
 			case *layout.TextItem:
-				p.Text(ox+v.X, oy+v.Baseline, v.Text, v.Face, v.Size, v.Color, v.LetterSpacing)
+				p.Text(ox+v.X, oy+v.Baseline, v.Text, v.Face, v.Size, v.Color, v.LetterSpacing,
+					Synthesis{Bold: v.SynthBold, Italic: v.SynthItalic})
 			case *layout.ImageItem:
 				clip := v.Clip
 				clip.X += ox
@@ -82,4 +90,9 @@ func Paint(d *Document, p Painter, w io.Writer) error {
 		}
 	}
 	return p.Finish(w)
+}
+
+// Synthesis lists the styles to synthesise because the face lacks them.
+type Synthesis struct {
+	Bold, Italic bool
 }

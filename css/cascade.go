@@ -29,6 +29,9 @@ type ElementStyle struct {
 	Before *Style // nil when not generated
 	After  *Style
 	Marker *Style // ::marker (list items)
+	// FirstLetter is the ::first-letter style of a block container, nil when
+	// no rule targets it.
+	FirstLetter *Style
 }
 
 type compiledRule struct {
@@ -233,6 +236,12 @@ func (c *Cascade) computeElement(n *html.Node, parent *Style, initial *Style) *E
 	if isRoot {
 		c.ctx.RootFontSize = es.Style.FontSize
 	}
+	if decls, ok := byPseudo["first-letter"]; ok {
+		switch es.Style.Display {
+		case "block", "list-item", "table-cell", "table-caption", "inline-block", "flow-root":
+			es.FirstLetter = c.computeStyle(decls, es.Style, initial, false)
+		}
+	}
 	for _, ps := range []string{"before", "after", "marker"} {
 		decls, ok := byPseudo[ps]
 		if !ok && ps != "marker" {
@@ -403,6 +412,16 @@ func (c *Cascade) computeStyle(decls []matchedDecl, parent, initial *Style, isRo
 		if _, ok := declared[[]string{"border-top-color", "border-right-color", "border-bottom-color", "border-left-color"}[i]]; !ok {
 			s.BorderColor[i] = s.Color
 		}
+	}
+	// Blink: tables never keep the -webkit-* text-align values
+	if s.TextAlignLegacy != "" && (s.Display == "table" || s.Display == "inline-table") {
+		s.TextAlign, s.TextAlignLegacy = "start", ""
+	}
+	if !isRoot {
+		s.ParentAlignLegacy = parent.TextAlignLegacy
+	}
+	if _, ok := declared["outline-color"]; !ok {
+		s.OutlineColor = s.Color
 	}
 	// blockification of floats/absolutes and the root
 	if s.IsAbsolute() {

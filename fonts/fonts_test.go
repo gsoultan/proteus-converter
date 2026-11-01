@@ -1,6 +1,9 @@
 package fonts
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func TestSystemChain(t *testing.T) {
 	r := System()
@@ -24,5 +27,26 @@ func TestStandardFallback(t *testing.T) {
 	}
 	if w := ch[0].Width("abc", 10); w != 18 {
 		t.Fatalf("courier width %v", w)
+	}
+}
+
+func TestDecodeWOFF(t *testing.T) {
+	data, err := os.ReadFile("../testdata/assets/fonts/Caladea-Italic.woff")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sfnt, err := DecodeWOFF(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := NewResolver()
+	if err := r.AddData(sfnt, "", 0, false); err != nil {
+		t.Fatal(err)
+	}
+	if !r.HasFamily("Caladea") {
+		t.Fatal("decoded WOFF does not register the Caladea family")
+	}
+	if _, err := DecodeWOFF(data[:60]); err == nil {
+		t.Fatal("truncated WOFF accepted")
 	}
 }

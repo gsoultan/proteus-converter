@@ -93,9 +93,26 @@ func (l *layouter) blockWidth(s *css.Style, cbw, forced float64) (e edges, cw fl
 			e.ml += free
 		case e.mrAuto:
 			e.mr += free
+		default:
+			legacyAlign(s, &e, free)
 		}
 	}
 	return e, cw
+}
+
+// legacyAlign shifts a block without auto margins inside a parent whose
+// text-align is -webkit-center/-webkit-right (HTML align attributes).
+func legacyAlign(s *css.Style, e *edges, free float64) {
+	if free <= 0 {
+		return
+	}
+	switch s.ParentAlignLegacy {
+	case "center":
+		e.ml += free / 2
+		e.mr += free / 2
+	case "right":
+		e.ml += free
+	}
 }
 
 func isBFC(b *Box) bool {
@@ -121,7 +138,7 @@ func (l *layouter) layoutBlock(b *Box, x, y, cbw float64, pending margins, bfc b
 // block formatting context roots, lays out the absolutely positioned
 // descendants of positioned boxes and applies relative offsets.
 func (l *layouter) layoutBlockW(b *Box, x, y, cbw float64, pending margins, bfc bool, forced float64) blockResult {
-	s := b.Style
+	s := l.style(b)
 	startLen := len(l.items)
 	newBFC := bfc || isBFC(b)
 	savedFC := l.fc
@@ -158,7 +175,7 @@ func (l *layouter) layoutBlockW(b *Box, x, y, cbw float64, pending margins, bfc 
 
 // definiteHeight returns the definite content height of a box, or -1.
 func (l *layouter) definiteHeight(b *Box, cbw float64) float64 {
-	s := b.Style
+	s := l.style(b)
 	extra := s.BorderUsed(css.Top) + s.BorderUsed(css.Bottom) + s.Padding[css.Top].Resolve(cbw, 0) + s.Padding[css.Bottom].Resolve(cbw, 0)
 	if t, ok := l.e.forcedH[b]; ok {
 		return math.Max(t-extra, 0)
@@ -209,7 +226,7 @@ func relativeOffset(s *css.Style, cbw float64) (dx, dy float64) {
 }
 
 func (l *layouter) layoutBlockInner(b *Box, x, y, cbw float64, pending margins, bfc bool, forced float64) blockResult {
-	s := b.Style
+	s := l.style(b)
 	startLen := len(l.items)
 	fcN, fcTop := l.fc.snapshot()
 	posN := 0
@@ -242,6 +259,10 @@ func (l *layouter) layoutBlockInner(b *Box, x, y, cbw float64, pending margins, 
 		left := x
 		if e.mlAuto && e.mrAuto {
 			left += (cbw - a.w) / 2
+		} else if !e.mlAuto && !e.mrAuto {
+			le := edges{}
+			legacyAlign(s, &le, cbw-a.w)
+			left += le.ml
 		}
 		for _, it := range a.items {
 			it.translate(left, ny-mt)
@@ -256,6 +277,11 @@ func (l *layouter) layoutBlockInner(b *Box, x, y, cbw float64, pending margins, 
 	}
 
 	e, cw := l.blockWidth(s, cbw, forced)
+	// children resolve percentage heights against this box's definite height
+	defH := l.definiteHeight(b, cbw)
+	savedPctH, savedPctOK := l.pctH, l.pctOK
+	l.pctH, l.pctOK = defH, defH >= 0
+	defer func() { l.pctH, l.pctOK = savedPctH, savedPctOK }()
 	bt, bb := s.BorderUsed(css.Top), s.BorderUsed(css.Bottom)
 	pt, pb := s.Padding[css.Top].Resolve(cbw, 0), s.Padding[css.Bottom].Resolve(cbw, 0)
 	pend := pending.add(mt)
@@ -281,9 +307,9 @@ func (l *layouter) layoutBlockInner(b *Box, x, y, cbw float64, pending margins, 
 		contentTop = top + bt + pt
 		switch {
 		case s.IsFlex():
-			cr = l.layoutFlex(b, cx, contentTop, cw, l.definiteHeight(b, cbw))
+			cr = l.layoutFlex(b, cx, contentTop, cw, defH)
 		case s.IsGrid():
-			cr = l.layoutGrid(b, cx, contentTop, cw, l.definiteHeight(b, cbw))
+			cr = l.layoutGrid(b, cx, contentTop, cw, defH)
 		default:
 			cr = l.layoutContents(b, cx, contentTop, cw, margins{})
 		}
@@ -396,7 +422,9 @@ func (l *layouter) layoutBlockInner(b *Box, x, y, cbw float64, pending margins, 
 				restartAt = l.nextPageStart(top)
 			}
 		}
-		if restartAt > top {
+		// restartAt > y: a negative top margin can put top above the restart point
+		// again, so only restart when it moves the block's position forward.
+		if restartAt > top && restartAt > y {
 			l.items = l.items[:startLen]
 			l.marker = savedMarker
 			l.fc.restore(fcN, fcTop)
@@ -418,6 +446,7 @@ func (l *layouter) layoutBlockInner(b *Box, x, y, cbw float64, pending margins, 
 	l.emitBorders(s, bx, top, bw, bottom-top, [4]bool{true, true, true, true})
 	bg.items = append(bg.items, l.items...)
 	l.items = saved
+	l.emitOutline(s, bx, top, bw, bottom-top)
 	l.emitIDs(b, top)
 	return res
 }
@@ -560,8 +589,9 @@ func (l *layouter) layoutContents(b *Box, x, y, w float64, pending margins) cont
 // roundedBorder strokes a uniform border with rounded corners as one path.
 // It reports false when the border is not uniform or has no radius.
 func (l *layouter) roundedBorder(s *css.Style, x, y, w, h float64, sides [4]bool) bool {
-	r := s.BorderRadius[0].Resolve(w, 0)
-	if r <= 0 || sides != [4]bool{true, true, true, true} {
+	radii, mixed := cornerRadii(s, w, h)
+	r := radii[0]
+	if (r <= 0 && !mixed) || sides != [4]bool{true, true, true, true} {
 		return false
 	}
 	bw := s.BorderUsed(0)
@@ -595,8 +625,14 @@ func (l *layouter) roundedBorder(s *css.Style, x, y, w, h float64, sides [4]bool
 		st.LineCap = 1
 		st.Dash = []float64{0.001, 2 * bw}
 	}
-	l.emit(&PathItem{M: svg.Identity, Top: y, Style: st,
-		Segs: svg.RoundRect(x+bw/2, y+bw/2, w-bw, h-bw, ir, ir)})
+	segs := svg.RoundRect(x+bw/2, y+bw/2, w-bw, h-bw, ir, ir)
+	if mixed {
+		for i := range radii {
+			radii[i] = math.Max(radii[i]-bw/2, 0)
+		}
+		segs = svg.RoundRect4(x+bw/2, y+bw/2, w-bw, h-bw, radii)
+	}
+	l.emit(&PathItem{M: svg.Identity, Top: y, Style: st, Segs: segs})
 	return true
 }
 

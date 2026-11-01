@@ -10,7 +10,11 @@ const path = require('node:path');
     console.error('usage: node chromium.cjs in.html out.pdf [...]');
     process.exit(2);
   }
-  const opts = process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {};
+  // Without an explicit hinting mode Chromium follows the machine's font settings, and with full
+  // hinting (as on GitHub runners) it rounds glyph advances to whole pixels. proteus uses unhinted
+  // advances, so pin that here to make references the same on every machine.
+  const opts = { args: ['--font-render-hinting=none'] };
+  if (process.env.CHROMIUM_PATH) opts.executablePath = process.env.CHROMIUM_PATH;
   const browser = await chromium.launch(opts);
   const page = await browser.newPage();
   for (let i = 0; i < args.length; i += 2) {

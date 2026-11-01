@@ -20,8 +20,10 @@ type Engine struct {
 	cellHeight map[*Box]float64
 	canvasBox  *Box // box whose background was propagated to the page canvas
 	intrinsic  map[*Box][2]float64
-	forcedH    map[*Box]float64 // border-box heights imposed by flex, grid and absolute layout
-	forcedW    map[*Box]float64 // border-box widths imposed on replaced flex and grid items
+	forcedH    map[*Box]float64          // border-box heights imposed by flex, grid and absolute layout
+	forcedW    map[*Box]float64          // border-box widths imposed on replaced flex and grid items
+	pctStyle   map[*Box]pctStyle         // resolved percentage heights
+	smallCaps  map[*css.Style]*css.Style // synthetic small-caps styles
 
 	fixedOK    bool     // position: fixed boxes repeat on every page
 	fixedBoxes []absBox // collected during layout
@@ -53,9 +55,12 @@ func (e *Engine) Layout(root *Box) []Item {
 	e.cellHeight = map[*Box]float64{}
 	e.forcedH = map[*Box]float64{}
 	e.forcedW = map[*Box]float64{}
+	e.pctStyle = map[*Box]pctStyle{}
+	e.smallCaps = map[*css.Style]*css.Style{}
 	e.fixedBoxes, e.fixedItems = nil, nil
 	e.fixedOK = true
-	l := &layouter{e: e, fragment: true, fc: &floatCtx{}, pos: &posCtx{}}
+	// percentages on the root resolve against the page area, as in Chromium print
+	l := &layouter{e: e, fragment: true, fc: &floatCtx{}, pos: &posCtx{}, pctH: e.PageHeight, pctOK: true}
 	l.layoutBlock(root, 0, 0, e.PageWidth, margins{}, true)
 	// absolutely positioned boxes without a positioned ancestor use the first page area
 	l.layoutAbsolute(l.pos, Clip{W: e.PageWidth, H: e.PageHeight})
@@ -82,10 +87,44 @@ type layouter struct {
 	marker   *pendingMarker
 	fc       *floatCtx // floats of the current block formatting context
 	pos      *posCtx   // absolutely positioned boxes waiting for their containing block
+	// pctH is the definite height percentages of block heights resolve
+	// against (the containing block's content height) when pctOK is set.
+	pctH  float64
+	pctOK bool
+}
+
+// style returns b's computed style with percentage heights resolved against
+// the containing block height, or b.Style when nothing needs resolving.
+// Without a definite containing block height they keep behaving as auto.
+func (l *layouter) style(b *Box) *css.Style {
+	s := b.Style
+	if !l.pctOK || !(s.Height.HasPct() || s.MinHeight.HasPct() || s.MaxHeight.HasPct()) {
+		return s
+	}
+	if c, ok := l.e.pctStyle[b]; ok && c.base == l.pctH {
+		return c.s
+	}
+	c := *s
+	res := func(v css.Length) css.Length {
+		if v.HasPct() {
+			return css.Length{Pt: v.Resolve(l.pctH, 0)}
+		}
+		return v
+	}
+	c.Height, c.MinHeight, c.MaxHeight = res(s.Height), res(s.MinHeight), res(s.MaxHeight)
+	l.e.pctStyle[b] = pctStyle{base: l.pctH, s: &c}
+	return &c
+}
+
+type pctStyle struct {
+	base float64
+	s    *css.Style
 }
 
 // sub returns a layouter for an independent formatting context laid out at the origin.
-func (l *layouter) sub() *layouter { return &layouter{e: l.e, fc: &floatCtx{}} }
+func (l *layouter) sub() *layouter {
+	return &layouter{e: l.e, fc: &floatCtx{}, pctH: l.pctH, pctOK: l.pctOK}
+}
 
 func (l *layouter) emit(it Item) { l.items = append(l.items, it) }
 

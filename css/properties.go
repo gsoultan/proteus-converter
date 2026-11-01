@@ -259,23 +259,25 @@ func init() {
 	}, func(d, s *Style) { d.LineHeight = s.LineHeight })
 	def("text-align", true, func(s, p *Style, v string, _ *computeCtx) bool {
 		v = strings.ToLower(strings.TrimSpace(v))
+		legacy := ""
 		switch v {
 		case "-webkit-center", "-moz-center":
-			v = "center"
+			v, legacy = "center", "center"
 		case "-webkit-left":
-			v = "left"
+			v, legacy = "left", "left"
 		case "-webkit-right":
-			v = "right"
+			v, legacy = "right", "right"
 		case "match-parent":
-			v = p.TextAlign
+			v, legacy = p.TextAlign, p.TextAlignLegacy
 		}
 		switch v {
 		case "left", "right", "center", "justify", "start", "end":
 			s.TextAlign = v
+			s.TextAlignLegacy = legacy
 			return true
 		}
 		return false
-	}, func(d, s *Style) { d.TextAlign = s.TextAlign })
+	}, func(d, s *Style) { d.TextAlign, d.TextAlignLegacy = s.TextAlign, s.TextAlignLegacy })
 	a, cp = keywordProp(func(s *Style) *string { return &s.TextAlignLast }, "auto", "left", "right", "center", "justify", "start", "end")
 	def("text-align-last", true, a, cp)
 	a, cp = lengthProp(func(s *Style) *Length { return &s.TextIndent }, false, true)
@@ -384,6 +386,49 @@ func init() {
 			return ok
 		}, func(d, s *Style) { d.BorderColor[i] = s.BorderColor[i] })
 	}
+	def("outline-width", false, func(s, _ *Style, v string, c *computeCtx) bool {
+		w, ok := parseBorderWidth(v, c)
+		if ok {
+			s.OutlineWidth = w
+		}
+		return ok
+	}, func(d, s *Style) { d.OutlineWidth = s.OutlineWidth })
+	def("outline-style", false, func(s, _ *Style, v string, _ *computeCtx) bool {
+		v = strings.ToLower(strings.TrimSpace(v))
+		if v == "auto" {
+			v = "solid"
+		}
+		if !borderStyles[v] {
+			return false
+		}
+		s.OutlineStyle = v
+		return true
+	}, func(d, s *Style) { d.OutlineStyle = s.OutlineStyle })
+	def("outline-color", false, func(s, _ *Style, v string, _ *computeCtx) bool {
+		if strings.EqualFold(strings.TrimSpace(v), "invert") {
+			v = "currentcolor"
+		}
+		col, ok := ParseColor(v, s.Color)
+		if ok {
+			s.OutlineColor = col
+		}
+		return ok
+	}, func(d, s *Style) { d.OutlineColor = s.OutlineColor })
+	def("outline-offset", false, func(s, _ *Style, v string, c *computeCtx) bool {
+		l, ok := ParseLength(v, c.lc, false)
+		if !ok || l.Auto || l.Pct != 0 {
+			return false
+		}
+		s.OutlineOffset = math.Round(l.Pt/0.75) * 0.75
+		return true
+	}, func(d, s *Style) { d.OutlineOffset = s.OutlineOffset })
+	def("box-shadow", false, func(s, _ *Style, v string, c *computeCtx) bool {
+		sh, ok := parseBoxShadow(v, s.Color, c)
+		if ok {
+			s.BoxShadow = sh
+		}
+		return ok
+	}, func(d, s *Style) { d.BoxShadow = s.BoxShadow })
 	for i, corner := range []string{"top-left", "top-right", "bottom-right", "bottom-left"} {
 		i := i
 		def("border-"+corner+"-radius", false, func(s, _ *Style, v string, c *computeCtx) bool {
@@ -593,4 +638,47 @@ func lighter(w int) int {
 		return 400
 	}
 	return 700
+}
+
+// parseBoxShadow parses a box-shadow list ("none" gives an empty list).
+func parseBoxShadow(v string, current Color, c *computeCtx) ([]Shadow, bool) {
+	v = strings.TrimSpace(v)
+	if strings.EqualFold(v, "none") {
+		return []Shadow{}, true
+	}
+	var out []Shadow
+	for _, layer := range SplitCommas(v) {
+		sh := Shadow{Color: current}
+		var lens []float64
+		for _, t := range SplitValue(layer) {
+			switch {
+			case strings.EqualFold(t, "inset"):
+				sh.Inset = true
+			case startsNumeric(t) || strings.HasPrefix(strings.ToLower(t), "calc("):
+				l, ok := ParseLength(t, c.lc, true)
+				if !ok || l.Auto || l.Pct != 0 {
+					return nil, false
+				}
+				lens = append(lens, l.Pt)
+			default:
+				col, ok := ParseColor(t, current)
+				if !ok {
+					return nil, false
+				}
+				sh.Color = col
+			}
+		}
+		if len(lens) < 2 || len(lens) > 4 {
+			return nil, false
+		}
+		sh.X, sh.Y = lens[0], lens[1]
+		if len(lens) > 2 {
+			sh.Blur = math.Max(lens[2], 0)
+		}
+		if len(lens) > 3 {
+			sh.Spread = lens[3]
+		}
+		out = append(out, sh)
+	}
+	return out, len(out) > 0
 }

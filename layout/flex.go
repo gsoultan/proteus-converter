@@ -329,7 +329,7 @@ func (l *layouter) layoutFlex(b *Box, x, y, cw, defH float64) contentsResult {
 
 // flexItem computes the flex base size and bounds of one item.
 func (l *layouter) flexItem(b *Box, cs *css.Style, row bool, cw, defH float64) *flexItem {
-	s := b.Style
+	s := l.style(b)
 	it := &flexItem{box: b, s: s, isReplaced: b.Kind == KindImage || b.Kind == KindCheckbox}
 	it.align = resolveAlign(cs.AlignItems, s.AlignSelf)
 	e := l.hEdges(s, cw)

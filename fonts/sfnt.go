@@ -104,8 +104,8 @@ func parseSfntInfoAt(r io.ReaderAt, size int64, off uint32) (*sfntInfo, error) {
 		if o+l > size {
 			continue
 		}
-		if t == "glyf" {
-			hasGlyf = true
+		if t == "glyf" || t == "CFF " {
+			hasGlyf = true // outlines gpdf can embed (TrueType or OpenType-CFF)
 		}
 		if limit, ok := want[t]; ok {
 			if b := readAt(r, size, o, min(l, limit)); b != nil {

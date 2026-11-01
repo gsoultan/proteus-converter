@@ -113,11 +113,7 @@ func (g *GPDF) Ellipse(x, y, w, h float64, c css.Color, stroke float64) {
 }
 
 // Text implements Painter.
-// minSpacing is printed as 0.0001 by gpdf's %g encoder (1e-5 would become
-// exponent notation, which is not valid PDF syntax).
-const minSpacing = 1e-4
-
-func (g *GPDF) Text(x, baseline float64, text string, face *fonts.Face, size float64, c css.Color, letterSpacing float64) {
+func (g *GPDF) Text(x, baseline float64, text string, face *fonts.Face, size float64, c css.Color, letterSpacing float64, synth Synthesis) {
 	if text == "" || c.A <= 0 {
 		return
 	}
@@ -131,11 +127,9 @@ func (g *GPDF) Text(x, baseline float64, text string, face *fonts.Face, size flo
 		g.b.RegisterFont(ttf)
 		g.registered[name] = true
 	}
-	// gpdf only emits Tc when the spacing is non-zero, and Tc persists across
-	// text objects, so a zero spacing would inherit the previous run's value.
-	// A negligible positive spacing forces an explicit Tc on every run.
-	if letterSpacing == 0 {
-		letterSpacing = minSpacing
+	if synth.Bold || synth.Italic {
+		g.b.DrawTextSynthetic(text, x, g.pageH-baseline, name, size, rgb(c), letterSpacing, 0, synth.Bold, synth.Italic)
+		return
 	}
 	g.b.DrawTextWithSpacing(text, x, g.pageH-baseline, name, size, rgb(c), letterSpacing, 0)
 }
