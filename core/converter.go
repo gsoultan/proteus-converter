@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 // Package core holds the contracts shared by every converter: the Converter
 // strategy interface, the format registry, functional options and resource
 // loading. Format implementations live in formats/*; most users should use the
