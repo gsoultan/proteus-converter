@@ -6,6 +6,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -32,7 +33,8 @@ type sourceSheet struct {
 }
 
 // Render converts a parsed document into a PDF written to w.
-func Render(ctx context.Context, in Input, cfg *core.Config, w io.Writer) error {
+func Render(ctx context.Context, in Input, cfg *core.Config, w io.Writer) (err error) {
+	defer core.Recover(&err)
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -125,10 +127,13 @@ func Render(ctx context.Context, in Input, cfg *core.Config, w io.Writer) error 
 	}
 
 	// 5. layout and pagination
-	eng := &layout.Engine{Fonts: res, PageWidth: cw, PageHeight: ch, Warn: warn}
+	eng := &layout.Engine{Fonts: res, PageWidth: cw, PageHeight: ch, MaxPages: cfg.MaxPages, Warn: warn}
 	canvas, hasCanvas := eng.CanvasBackground(root)
 	items := eng.Layout(root)
-	pages := eng.Paginate(items)
+	pages, err := eng.Paginate(items)
+	if errors.Is(err, layout.ErrTooManyPages) {
+		return fmt.Errorf("%w (limit %d, see WithMaxPages)", core.ErrTooManyPages, cfg.MaxPages)
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}

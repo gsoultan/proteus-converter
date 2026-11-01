@@ -236,7 +236,7 @@ func (l *layouter) layoutBlockInner(b *Box, x, y, cbw float64, pending margins, 
 		return r
 	case KindImage, KindCheckbox:
 		a := l.layoutAtomic(b, cbw)
-		top := y + pending.add(mt).value()
+		top := l.afterMargin(y, pending.add(mt))
 		ny := l.place(top, a.h-mt-mb)
 		e := l.hEdges(s, cbw)
 		left := x
@@ -273,11 +273,11 @@ func (l *layouter) layoutBlockInner(b *Box, x, y, cbw float64, pending margins, 
 		if cr.placed {
 			top = cr.firstTop
 		} else {
-			top = y + pend.value()
+			top = l.afterMargin(y, pend)
 		}
 		contentTop = top
 	} else {
-		top = y + pend.value()
+		top = l.afterMargin(y, pend)
 		contentTop = top + bt + pt
 		switch {
 		case s.IsFlex():
@@ -337,6 +337,7 @@ func (l *layouter) layoutBlockInner(b *Box, x, y, cbw float64, pending margins, 
 			contentEnd = math.Max(contentEnd, l.fc.bottom())
 		}
 		ch := math.Max(contentEnd-contentTop, 0)
+		natural := ch // content height, before height/min-height apply
 		if !heightAuto {
 			h := s.Height.Resolve(0, 0)
 			if s.BoxSizing == "border-box" {
@@ -361,13 +362,14 @@ func (l *layouter) layoutBlockInner(b *Box, x, y, cbw float64, pending margins, 
 			ch = math.Max(target-bt-pt-pb-bb, 0)
 		}
 		if target, ok := l.e.cellHeight[b]; ok {
-			if need := target - bt - pt - pb - bb; need > ch {
+			// a table cell: align the content inside the row height
+			if need := math.Max(target-bt-pt-pb-bb, ch); need > natural {
 				shift := 0.0
 				switch s.VerticalAlign {
 				case "middle":
-					shift = (need - ch) / 2
+					shift = (need - natural) / 2
 				case "bottom":
-					shift = need - ch
+					shift = need - natural
 				}
 				if shift != 0 {
 					translateItems(l.items[startLen+1:], 0, shift)
@@ -456,7 +458,7 @@ func (l *layouter) layoutContents(b *Box, x, y, w float64, pending margins) cont
 	}
 	if !hasBlockChild(b) {
 		pend := pending
-		start := y + pending.value()
+		start := l.afterMargin(y, pending)
 		ir := l.layoutInline(b, x, y, w, &pend)
 		if !ir.placed {
 			res.pending = pending

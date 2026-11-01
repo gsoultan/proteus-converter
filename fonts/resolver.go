@@ -1,6 +1,8 @@
 package fonts
 
 import (
+	"bytes"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -94,12 +96,18 @@ func (r *Resolver) AddDir(dir string) error {
 }
 
 // AddFile registers every face in a font file, under the families in its name table.
+// Only the font's header tables are read here; outlines load on first use.
 func (r *Resolver) AddFile(path string) error {
-	data, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	return r.add(data, path, "", 0, false, false)
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	return r.addAt(f, st.Size(), nil, path, "", 0, false)
 }
 
 // AddData registers a font program. A non-empty family overrides the name
@@ -109,13 +117,23 @@ func (r *Resolver) AddData(data []byte, family string, weight int, italic bool) 
 }
 
 func (r *Resolver) add(data []byte, path, family string, weight int, italic, keep bool) error {
-	offs, err := collectionOffsets(data)
+	var kept []byte
+	if keep {
+		kept = data
+	}
+	return r.addAt(bytes.NewReader(data), int64(len(data)), kept, path, family, weight, italic)
+}
+
+// addAt registers the faces of the font read through src. data, when non-nil,
+// is kept in memory as the font program; otherwise it is reloaded from path.
+func (r *Resolver) addAt(src io.ReaderAt, size int64, data []byte, path, family string, weight int, italic bool) error {
+	offs, err := collectionOffsetsAt(src, size)
 	if err != nil {
 		return err
 	}
 	added := 0
 	for i, off := range offs {
-		info, err := parseSfntInfo(data, off)
+		info, err := parseSfntInfoAt(src, size, off)
 		if err != nil || !info.hasGlyf {
 			continue
 		}
@@ -124,9 +142,7 @@ func (r *Resolver) add(data []byte, path, family string, weight int, italic, kee
 			f.index = 0
 			f.offset = 0
 		}
-		if keep {
-			f.data = data
-		}
+		f.data = data
 		names := []string{info.family}
 		if info.altFamily != "" {
 			names = append(names, info.altFamily)

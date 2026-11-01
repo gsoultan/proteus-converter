@@ -3,7 +3,7 @@ package pipeline
 import (
 	"bytes"
 	"context"
-	"errors"
+	"fmt"
 	"image"
 	_ "image/gif" // GIF decoding
 	"image/jpeg"
@@ -49,6 +49,13 @@ func (il *imageLoader) load(src string) (*layout.Image, error) {
 	return img, nil
 }
 
+// Decoded images cost about 8 bytes per pixel while rendering, so a small
+// compressed file with huge dimensions (a decompression bomb) is refused.
+const (
+	maxImagePixels = 40_000_000 // e.g. 8000x5000
+	maxImageSide   = 1 << 15
+)
+
 func decodeImage(data []byte) (*layout.Image, error) {
 	trim := bytes.TrimSpace(data)
 	if bytes.HasPrefix(trim, []byte("<svg")) || bytes.HasPrefix(trim, []byte("<?xml")) || bytes.HasPrefix(trim, []byte("<!--")) ||
@@ -63,8 +70,9 @@ func decodeImage(data []byte) (*layout.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width*cfg.Height > 100_000_000 {
-		return nil, errors.New("image dimensions out of range")
+	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width > maxImageSide || cfg.Height > maxImageSide ||
+		cfg.Width*cfg.Height > maxImagePixels {
+		return nil, fmt.Errorf("image dimensions %dx%d out of range (max %d pixels)", cfg.Width, cfg.Height, maxImagePixels)
 	}
 	switch strings.ToLower(format) {
 	case "png":

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tables</title>
+<style>
+  @page { size: A4; margin: 1cm; }
+  body { font-family: "Liberation Sans", sans-serif; font-size: 9pt; }
+  table { margin-bottom: 14px; }
+  .grid { border-collapse: collapse; width: 100%; }
+  .grid th, .grid td { border: 1px solid #888; padding: 4px 6px; }
+  .grid th { background: #e8eef7; }
+  .sep { border-collapse: separate; border-spacing: 4px; border: 2px solid #333; }
+  .sep td { border: 1px solid #aaa; padding: 3px; }
+  caption { font-weight: bold; padding: 4px; }
+  .mid td { vertical-align: middle; height: 40px; }
+  .bot td { vertical-align: bottom; height: 30px; }
+  .zebra tr:nth-child(odd) td { background: #f3f3f3; }
+  .fixed { table-layout: fixed; width: 60%; border-collapse: collapse; }
+  .fixed td { border: 1px solid #c00; overflow: hidden; }
+</style>
+</head>
+<body>
+<table class="grid">
+  <caption>Quarterly results</caption>
+  <thead><tr><th rowspan="2">Region</th><th colspan="2">2025</th><th colspan="2">2026</th></tr>
+  <tr><th>Q1</th><th>Q2</th><th>Q1</th><th>Q2</th></tr></thead>
+  <tbody>
+  <tr><td>North</td><td style="text-align:right">1,200</td><td style="text-align:right">1,350</td><td style="text-align:right">1,410</td><td style="text-align:right">1,520</td></tr>
+  <tr><td>South</td><td style="text-align:right">980</td><td style="text-align:right">1,020</td><td colspan="2" style="text-align:center">n/a</td></tr>
+  <tr><td>East and a longer region name</td><td style="text-align:right">2,010</td><td style="text-align:right">2,200</td><td style="text-align:right">2,300</td><td style="text-align:right">2,480</td></tr>
+  </tbody>
+  <tfoot><tr><th>Total</th><td>4,190</td><td>4,570</td><td>3,710</td><td>4,000</td></tr></tfoot>
+</table>
+
+<table class="sep"><tr><td>Separated</td><td>borders</td><td>with spacing</td></tr><tr><td colspan="2">Spanning two</td><td>Cell</td></tr></table>
+
+<table class="grid mid"><tr><td>Middle</td><td>Vertically centered<br>two lines</td><td style="vertical-align:top">Top</td></tr></table>
+<table class="grid bot"><tr><td>Bottom</td><td style="width:30%">Thirty percent</td><td>Rest</td></tr></table>
+
+<table class="fixed"><tr><td style="width:30%">fixed 30%</td><td>fixed rest</td><td>third</td></tr></table>
+
+<table class="grid zebra">
+  <thead><tr><th>#</th><th>Item</th><th>Description</th><th>Qty</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td>Bolt</td><td>Hex bolt M8 x 40, zinc plated</td><td>100</td></tr>
+  <tr><td>2</td><td>Nut</td><td>Hex nut M8</td><td>100</td></tr>
+  <tr><td>3</td><td>Washer</td><td>Flat washer M8, 16 mm outer diameter</td><td>200</td></tr>
+  <tr><td>4</td><td>Bracket</td><td>Steel L bracket, 50 x 50 x 3 mm</td><td>25</td></tr>
+  <tr><td>5</td><td>Screw</td><td>Wood screw 4 x 30 countersunk</td><td>500</td></tr>
+  <tr><td>6</td><td>Anchor</td><td>Wall plug 6 mm</td><td>500</td></tr>
+  </tbody>
+</table>
+
+<table border="1" cellpadding="5" cellspacing="0" width="70%" bgcolor="#fafafa">
+  <tr><th align="left">HTML attributes</th><th align="right">Value</th></tr>
+  <tr><td>border, cellpadding, cellspacing</td><td align="right">1 / 5 / 0</td></tr>
+  <tr><td valign="top" height="40">valign top</td><td align="center">centered</td></tr>
+</table>
+</body>
+</html>

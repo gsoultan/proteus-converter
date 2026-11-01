@@ -67,6 +67,7 @@ type Config struct {
 	AllowHTTP       bool  // allow http(s) resources (stylesheets, images, fonts); off by default
 	AllowFile       bool  // allow local file resources; on by default
 	MaxResourceSize int64 // per-resource byte limit
+	MaxPages        int   // fail with ErrTooManyPages beyond this many pages; <= 0 means no limit
 
 	Stylesheets []string // extra author CSS applied after the document's own styles
 	MediaType   string   // CSS media type used for @media evaluation; "print" by default
@@ -96,6 +97,7 @@ func NewConfig(opts ...Option) *Config {
 		Margins:         UniformMargins(Cm(1)),
 		AllowFile:       true,
 		MaxResourceSize: 50 << 20,
+		MaxPages:        DefaultMaxPages,
 		MediaType:       "print",
 		SystemFonts:     true,
 		Outline:         true,
@@ -142,6 +144,14 @@ func WithLocalFiles(allow bool) Option { return func(c *Config) { c.AllowFile = 
 
 // WithMaxResourceSize limits the size of each fetched resource in bytes.
 func WithMaxResourceSize(n int64) Option { return func(c *Config) { c.MaxResourceSize = n } }
+
+// DefaultMaxPages is the default page limit. It stops runaway documents (for
+// example a 1e9px margin) from exhausting memory.
+const DefaultMaxPages = 10000
+
+// WithMaxPages limits the number of pages a conversion may produce; n <= 0
+// removes the limit.
+func WithMaxPages(n int) Option { return func(c *Config) { c.MaxPages = n } }
 
 // WithStylesheet adds author CSS applied after the document's own stylesheets.
 func WithStylesheet(css string) Option {

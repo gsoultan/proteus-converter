@@ -81,7 +81,8 @@ func (c *Converter) document(src []byte) (*html.Node, error) {
 }
 
 // Convert implements core.Converter.
-func (c *Converter) Convert(ctx context.Context, src io.Reader, dst io.Writer, opts ...core.Option) error {
+func (c *Converter) Convert(ctx context.Context, src io.Reader, dst io.Writer, opts ...core.Option) (err error) {
+	defer core.Recover(&err)
 	cfg := core.NewConfig(opts...)
 	data, err := io.ReadAll(src)
 	if err != nil {

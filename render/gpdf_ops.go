@@ -257,9 +257,41 @@ func rasterize(m image.Image) *rawImage {
 	opaque := true
 	rgb := make([]byte, w*h*3)
 	mask := make([]byte, w*h)
+	// pixel returns the non-premultiplied color at (x, y) relative to b.Min,
+	// reading the common decoder outputs directly instead of through At,
+	// which allocates per pixel.
+	var pixel func(x, y int) color.NRGBA
+	switch im := m.(type) {
+	case *image.NRGBA:
+		pixel = func(x, y int) color.NRGBA {
+			o := im.PixOffset(b.Min.X+x, b.Min.Y+y)
+			p := im.Pix[o : o+4 : o+4]
+			return color.NRGBA{p[0], p[1], p[2], p[3]}
+		}
+	case *image.Paletted:
+		pal := make([]color.NRGBA, len(im.Palette))
+		for i, c := range im.Palette {
+			pal[i] = color.NRGBAModel.Convert(c).(color.NRGBA)
+		}
+		pixel = func(x, y int) color.NRGBA {
+			if i := int(im.Pix[im.PixOffset(b.Min.X+x, b.Min.Y+y)]); i < len(pal) {
+				return pal[i]
+			}
+			return color.NRGBA{A: 255}
+		}
+	case *image.Gray:
+		pixel = func(x, y int) color.NRGBA {
+			v := im.Pix[im.PixOffset(b.Min.X+x, b.Min.Y+y)]
+			return color.NRGBA{v, v, v, 255}
+		}
+	default:
+		pixel = func(x, y int) color.NRGBA {
+			return color.NRGBAModel.Convert(m.At(b.Min.X+x, b.Min.Y+y)).(color.NRGBA)
+		}
+	}
 	for y := range h {
 		for x := range w {
-			c := color.NRGBAModel.Convert(m.At(b.Min.X+x, b.Min.Y+y)).(color.NRGBA)
+			c := pixel(x, y)
 			i := y*w + x
 			rgb[i*3], rgb[i*3+1], rgb[i*3+2] = c.R, c.G, c.B
 			mask[i] = c.A

@@ -19,6 +19,12 @@ const pageW, pageH = 400.0, 600.0
 // items of its first page.
 func layoutHTML(t *testing.T, src string) []layout.Item {
 	t.Helper()
+	return pagesHTML(t, src)[0]
+}
+
+// pagesHTML lays out src and returns the items of every page.
+func pagesHTML(t *testing.T, src string) [][]layout.Item {
+	t.Helper()
 	doc, err := html.Parse(strings.NewReader(src))
 	if err != nil {
 		t.Fatal(err)
@@ -42,11 +48,18 @@ func layoutHTML(t *testing.T, src string) []layout.Item {
 	bd := &layout.Builder{Styles: styles, Warn: warn}
 	root := bd.Build(doc)
 	eng := &layout.Engine{Fonts: fonts.NewResolver(), PageWidth: pageW, PageHeight: pageH, Warn: warn}
-	pages := eng.Paginate(eng.Layout(root))
+	pages, err := eng.Paginate(eng.Layout(root))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(pages) == 0 {
 		t.Fatal("no pages")
 	}
-	return pages[0].Items
+	out := make([][]layout.Item, len(pages))
+	for i, p := range pages {
+		out[i] = p.Items
+	}
+	return out
 }
 
 // rect finds the background rect painted in the given 0-255 color.

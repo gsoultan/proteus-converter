@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lists</title>
+<style>
+  @page { size: A4; margin: 1cm; }
+  body { font-family: "Liberation Sans", sans-serif; font-size: 10pt; }
+  .cols { display: flex; gap: 20px; }
+  .cols > div { flex: 1; }
+  dt { font-weight: bold; }
+  dd { margin-left: 24px; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<h2>Unordered</h2>
+<div class="cols">
+<div><ul>
+  <li>Disc item one</li>
+  <li>Disc item two that is long enough to wrap onto a second line in the column</li>
+  <li>Nested
+    <ul><li>Circle item</li><li>Circle item
+      <ul><li>Square item</li><li>Square item</li></ul></li></ul>
+  </li>
+</ul></div>
+<div><ul style="list-style-type:square"><li>Square</li><li>Square</li></ul>
+<ul style="list-style-type:circle"><li>Circle</li><li>Circle</li></ul>
+<ul style="list-style:none;padding-left:0"><li>No marker</li><li>No marker</li></ul>
+<ul style="list-style-position:inside"><li>Inside marker</li><li>Inside marker that wraps across lines in this narrow column</li></ul></div>
+</div>
+
+<h2>Ordered</h2>
+<div class="cols">
+<div><ol><li>One</li><li>Two</li><li>Three<ol><li>Nested one</li><li>Nested two</li></ol></li><li>Four</li></ol>
+<ol start="7"><li>Seven</li><li>Eight</li><li value="20">Twenty</li><li>Twenty-one</li></ol></div>
+<div><ol type="a"><li>alpha</li><li>beta</li></ol>
+<ol style="list-style-type:upper-alpha"><li>Upper</li><li>Upper</li></ol>
+<ol style="list-style-type:lower-roman"><li>i</li><li>ii</li><li>iii</li><li>iv</li></ol>
+<ol style="list-style-type:upper-roman" start="9"><li>IX</li><li>X</li><li>XI</li></ol></div>
+<div><ol reversed><li>Three</li><li>Two</li><li>One</li></ol>
+<ol style="list-style-type:decimal-leading-zero"><li>Zero one</li><li>Zero two</li></ol>
+<ol><li>Ten</li><li>items</li><li>to</li><li>check</li><li>marker</li><li>width</li><li>when</li><li>count</li><li>reaches</li><li>ten</li></ol></div>
+</div>
+
+<h2>Definition list</h2>
+<dl>
+  <dt>Term one</dt><dd>Definition of the first term.</dd>
+  <dt>Term two</dt><dd>Definition of the second term that is a little longer and wraps.</dd>
+  <dt>Term three</dt><dd>First definition.</dd><dd>Second definition.</dd>
+</dl>
+</body>
+</html>

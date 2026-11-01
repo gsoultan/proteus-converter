@@ -61,7 +61,13 @@ var (
 	ErrUnknownFormat    = core.ErrUnknownFormat
 	ErrResourceDenied   = core.ErrResourceDenied
 	ErrResourceTooLarge = core.ErrResourceTooLarge
+	ErrTooManyPages     = core.ErrTooManyPages
+	ErrInternal         = core.ErrInternal
 )
+
+// InternalError is returned (wrapping ErrInternal) when a conversion hits a
+// bug in proteus; the panic is recovered and never reaches the caller.
+type InternalError = core.InternalError
 
 // Options (see core for documentation).
 var (
@@ -73,6 +79,7 @@ var (
 	WithHTTP               = core.WithHTTP
 	WithLocalFiles         = core.WithLocalFiles
 	WithMaxResourceSize    = core.WithMaxResourceSize
+	WithMaxPages           = core.WithMaxPages
 	WithStylesheet         = core.WithStylesheet
 	WithMediaType          = core.WithMediaType
 	WithFont               = core.WithFont

@@ -1,8 +1,13 @@
 package layout
 
 import (
+	"errors"
 	"math"
 )
+
+// ErrTooManyPages is returned by Paginate when content would need more than
+// Engine.MaxPages pages.
+var ErrTooManyPages = errors.New("too many pages")
 
 // Page holds the items of one page, in page coordinates (points, origin at
 // the top-left of the page content area, Y downward).
@@ -11,17 +16,40 @@ type Page struct {
 }
 
 // Paginate distributes flow items over pages of the engine's content height.
-// Rectangles and vertical lines crossing a page boundary are split.
-func (e *Engine) Paginate(items []Item) []*Page {
+// Rectangles and vertical lines crossing a page boundary are split. Items
+// with non-finite coordinates are dropped; content beyond Engine.MaxPages
+// (when positive) makes Paginate fail with ErrTooManyPages.
+func (e *Engine) Paginate(items []Item) ([]*Page, error) {
 	h := e.PageHeight
+	limit := e.MaxPages
+	if limit <= 0 {
+		limit = math.MaxInt32
+	}
 	var pages []*Page
+	overflow := false
+	// sink collects items for pages beyond the limit so callers need no checks.
+	sink := &Page{}
 	get := func(i int) *Page {
+		if i >= limit {
+			overflow = true
+			sink.Items = sink.Items[:0]
+			return sink
+		}
 		for len(pages) <= i {
 			pages = append(pages, &Page{})
 		}
 		return pages[i]
 	}
-	idx := func(y float64) int { return max(0, int(math.Floor((y+eps)/h))) }
+	idx := func(y float64) int {
+		p := math.Floor((y + eps) / h)
+		switch {
+		case !(p > 0): // negative or NaN
+			return 0
+		case p >= float64(limit):
+			return limit
+		}
+		return int(p)
+	}
 	var add func(it Item)
 	add = func(it Item) {
 		switch v := it.(type) {
@@ -128,6 +156,9 @@ func (e *Engine) Paginate(items []Item) []*Page {
 	}
 	for _, it := range items {
 		add(it)
+		if overflow {
+			return nil, ErrTooManyPages
+		}
 	}
 	if len(pages) == 0 {
 		pages = append(pages, &Page{})
@@ -146,7 +177,7 @@ func (e *Engine) Paginate(items []Item) []*Page {
 			pg.Items = append(flow, tmp.Items...)
 		}
 	}
-	return pages
+	return pages, nil
 }
 
 // spanPages returns the pages a vertical extent [y0, y1] touches.
