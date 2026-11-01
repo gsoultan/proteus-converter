@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 // Package css parses stylesheets and computes styles with the browser cascade:
 // origin and importance, specificity, source order, inheritance, custom
 // properties (var()) and calc().

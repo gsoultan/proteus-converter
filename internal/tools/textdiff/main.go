@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 // Command textdiff compares the words of two PDFs and where they are placed.
 // It extracts every word with its bounding box (pdftotext -bbox, poppler),
 // aligns the two word sequences (longest common subsequence on the text), and

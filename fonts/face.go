@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 // Package fonts resolves CSS font families to concrete faces, measures text
 // and exposes the faces to the PDF painter. TrueType faces come from the
 // caller, @font-face rules or the OS font directories; the PDF standard 14

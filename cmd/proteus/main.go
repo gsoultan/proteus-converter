@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 // Command proteus converts HTML and Markdown files to PDF.
 //
 // Usage:

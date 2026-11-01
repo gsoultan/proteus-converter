@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 // Command mdhtml writes the HTML that the Markdown converter lays out, with
 // the theme inlined, so it can be rendered by a reference browser.
 package main
