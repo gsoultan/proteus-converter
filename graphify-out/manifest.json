@@ -174,9 +174,9 @@
     "semantic_hash": ""
   },
   "go.mod": {
-    "mtime": 1793532654.3164701,
-    "seen": 1793532894.2463884,
-    "ast_hash": "ac564303307f54ff58ddf3c043056625",
+    "mtime": 1793533104.720497,
+    "seen": 1793533174.3671036,
+    "ast_hash": "48a0bf9af11a342b0b87cd5e0076ba74",
     "semantic_hash": ""
   },
   "internal/tools/mdhtml/main.go": {
@@ -450,9 +450,9 @@
     "semantic_hash": ""
   },
   ".serena/memories/conventions_and_gaps.md": {
-    "mtime": 1793532879.0493083,
-    "seen": 1793532894.246475,
-    "ast_hash": "fb3c2dfaab6389756a7a51a12f5813fb",
+    "mtime": 1793533172.6701443,
+    "seen": 1793533174.3672657,
+    "ast_hash": "de4d9610ab3e5a848c90cf386abbc214",
     "semantic_hash": ""
   },
   ".serena/memories/project_overview.md": {

@@ -11,8 +11,8 @@
   leak_test.go (TestNoLeaks, TestConcurrentConversions compares pdftotext -bbox output because
   gpdf bytes differ per run, BenchmarkConvert with KiB/pdf), hardening_test.go, layout/
   hardening_test.go (tables, page-break margins, MaxPages). fonts BenchmarkSystemScan.
-- Perf (2026-10-31, 4 vCPU): 6-30 ms per fixture, 3-13 MB allocated; ~50% of CPU is gpdf
-  flate-compressing oversized font subsets. Font directory scan reads only header tables
+- Perf (2026-11-01, 4 vCPU, gpdf 393b425 pools zlib writers): 4-27 ms per fixture, 1.7-12 MB allocated;
+  webfonts 55 ms / 14 MB (whole OpenType-CFF fonts are embedded, no CFF subsetting -> 449 KB PDF). Font directory scan reads only header tables
   (parseSfntInfoAt over io.ReaderAt): 123 MB -> 0.6 MB allocated, ~3 ms. rasterize() reads
   NRGBA/Paletted/Gray pixels directly.
 - Remote fetching off by default (WithHTTP); local files on (WithLocalFiles, WithFS to confine).
