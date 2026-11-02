@@ -81,6 +81,41 @@ func (l *layouter) breakLines(frags []*frag, avail, indent float64) []*lineBox {
 	return lines
 }
 
+// breakFirstLine breaks lines like breakLines, with the first line built
+// from frags styled by the block's ::first-line rule. The rest of the
+// paragraph continues from the normal frags after the first line's content.
+func (l *layouter) breakFirstLine(b *Box, frags []*frag, avail, indent float64) []*lineBox {
+	s := b.Style
+	fb := &fragBuilder{l: l, avail: avail, lastSpace: true, capNext: true,
+		over: func(st *css.Style) *css.Style { return l.e.firstLineStyle(st, s, b.FirstLine) }}
+	fb.walk(b.Children, nil, s)
+	ofr := fb.frags
+	i := 0
+	for i < len(ofr) && ofr[i].kind == fSpace && ofr[i].collapse {
+		i++
+	}
+	if i >= len(ofr) || len(ofr) != len(frags) {
+		return l.breakLines(frags, avail, indent)
+	}
+	ofr, j, forced := l.breakOne(ofr, i, avail-indent)
+	first := &lineBox{frags: ofr[i:j], forced: forced, avail: avail - indent, indent: indent}
+	if j >= len(ofr) {
+		first.last = true
+		return []*lineBox{first}
+	}
+	if ofr[j].seq == ofr[j-1].seq {
+		// the first line ended inside a word split into characters: keep
+		// the remaining characters in the first-line style
+		k := j
+		for k < len(ofr) && ofr[k].seq == ofr[j-1].seq {
+			k++
+		}
+		rest := append(append([]*frag{}, ofr[j:k]...), frags[ofr[j-1].seq+1:]...)
+		return append([]*lineBox{first}, l.breakLines(rest, avail, 0)...)
+	}
+	return append([]*lineBox{first}, l.breakLines(frags[ofr[j].seq:], avail, 0)...)
+}
+
 // breakOne finds the end of the line starting at frags[i] for a line of
 // width lineAvail. Unbreakable text may be split into characters, so the
 // (possibly updated) frag slice is returned with the end index.
@@ -169,9 +204,9 @@ func (lb *lineBox) trimmed() []*frag {
 // measureLine computes the vertical metrics of a line box.
 func (l *layouter) measureLine(lb *lineBox, block *css.Style) {
 	sm := l.e.styleMetrics(block)
-	half := (sm.lh - (sm.ascent + sm.descent)) / 2
-	minTop := -sm.ascent - half
-	maxBot := sm.descent + half
+	above, below := leadingSplit(sm)
+	minTop := -sm.ascent - above
+	maxBot := sm.descent + below
 	var deferred []*atomicBox
 	for _, f := range lb.frags {
 		shift := 0.0
@@ -185,9 +220,9 @@ func (l *layouter) measureLine(lb *lineBox, block *css.Style) {
 				s = f.ctx.style
 			}
 			m := l.e.styleMetrics(s)
-			h := (m.lh - (m.ascent + m.descent)) / 2
-			minTop = math.Min(minTop, shift-m.ascent-h)
-			maxBot = math.Max(maxBot, shift+m.descent+h)
+			above, below := leadingSplit(m)
+			minTop = math.Min(minTop, shift-m.ascent-above)
+			maxBot = math.Max(maxBot, shift+m.descent+below)
 		case fAtomic:
 			a := f.atomic
 			switch a.valign {
@@ -201,6 +236,15 @@ func (l *layouter) measureLine(lb *lineBox, block *css.Style) {
 				}
 				xh := l.e.styleMetrics(ps).xHeight
 				top := shift - xh/2 - a.h/2
+				minTop = math.Min(minTop, top)
+				maxBot = math.Max(maxBot, top+a.h)
+				continue
+			case "text-top", "text-bottom":
+				ps := block
+				if f.ctx != nil {
+					ps = f.ctx.style
+				}
+				top := textEdgeTop(l.e.styleMetrics(ps), a, shift)
 				minTop = math.Min(minTop, top)
 				maxBot = math.Max(maxBot, top+a.h)
 				continue
@@ -222,6 +266,25 @@ func (l *layouter) measureLine(lb *lineBox, block *css.Style) {
 	}
 	lb.baseline = -minTop
 	lb.height = maxBot - minTop
+}
+
+// leadingSplit returns the leading added above the ascent and below the
+// descent. Blink (FontHeight::AddLeading) floors the half-leading above the
+// text to whole px and gives the rest to the descent side, so with
+// line-height 1.4 at 11px the baseline sits 0.7px higher than an even split.
+func leadingSplit(m styleMetrics) (above, below float64) {
+	lead := m.lh - (m.ascent + m.descent)
+	above = math.Floor(lead/2/0.75+1e-6) * 0.75
+	return above, lead - above
+}
+
+// textEdgeTop returns the top of an atomic box aligned with vertical-align
+// text-top or text-bottom, relative to the baseline, in a parent with metrics pm.
+func textEdgeTop(pm styleMetrics, a *atomicBox, shift float64) float64 {
+	if a.valign == "text-top" {
+		return shift - pm.ascent
+	}
+	return shift + pm.descent - a.h
 }
 
 // placeLines assigns a top position to every line, honouring page breaks,
@@ -312,9 +375,19 @@ func (l *layouter) layoutInline(b *Box, x, y, width float64, pending *margins) i
 		lines = l.linesAroundFloats(frags, x, y, width, indent, s)
 		res.oof = true
 	} else {
-		lines = l.breakLines(frags, width, indent)
-		for _, lb := range lines {
-			l.measureLine(lb, s)
+		strut := s
+		if b.FirstLine != nil {
+			lines = l.breakFirstLine(b, frags, width, indent)
+			strut = l.e.firstLineStyle(s, s, b.FirstLine)
+		} else {
+			lines = l.breakLines(frags, width, indent)
+		}
+		for i, lb := range lines {
+			if i == 0 {
+				l.measureLine(lb, strut)
+			} else {
+				l.measureLine(lb, s)
+			}
 			lb.x0 = x
 		}
 		res.pushedFirst = l.placeLines(lines, y, s)
@@ -582,11 +655,24 @@ func (l *layouter) emitTextFrag(f *frag, x, baseline float64) {
 	for _, r := range f.runs {
 		merged := l.mergeText(r.Text, r.Face, f, x, by)
 		if !merged && f.kind != fSpace {
+			sb, si := synthesis(f.style, r.Face)
 			l.emit(&TextItem{X: x, Baseline: by, Text: r.Text, Face: r.Face, Size: f.style.FontSize,
-				Color: f.style.Color, LetterSpacing: f.style.LetterSpacing})
+				Color: f.style.Color, LetterSpacing: f.style.LetterSpacing, SynthBold: sb, SynthItalic: si})
 		}
 		x += r.Face.Width(r.Text, f.style.FontSize) + f.style.LetterSpacing*float64(len([]rune(r.Text)))
 	}
+}
+
+// synthesis reports whether bold and italic must be synthesised because the
+// face chosen for s lacks them (Blink: weight >= 600 on a face below 600,
+// italic/oblique on an upright face). Standard-14 faces are never synthesised.
+func synthesis(s *css.Style, face *fonts.Face) (bold, italic bool) {
+	if face == nil || face.IsStandard() {
+		return false, false
+	}
+	bold = s.FontWeight >= 600 && face.Weight < 600
+	italic = (s.FontStyle == "italic" || s.FontStyle == "oblique") && !face.Italic
+	return bold, italic
 }
 
 // mergeText appends text to the previous text item when it continues it exactly.
@@ -595,7 +681,9 @@ func (l *layouter) mergeText(text string, face *fonts.Face, f *frag, x, baseline
 		return false
 	}
 	prev, ok := l.items[len(l.items)-1].(*TextItem)
+	sb, si := synthesis(f.style, face)
 	if !ok || prev.Face != face || prev.Size != f.style.FontSize || prev.Color != f.style.Color ||
+		prev.SynthBold != sb || prev.SynthItalic != si ||
 		prev.LetterSpacing != f.style.LetterSpacing || math.Abs(prev.Baseline-baseline) > eps {
 		return false
 	}

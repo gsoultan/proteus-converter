@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strings"
 )
 
 type word struct {
@@ -59,6 +60,13 @@ func main() {
 		a, b := ref[p[0]], cand[p[1]]
 		dx := b.x0 - a.x0
 		dy := b.y1 - a.y1 // bottom edge tracks the baseline
+		if ha, hb := a.y1-a.y0, b.y1-b.y0; math.Abs(ha-hb) > 0.2*math.Max(ha, hb) {
+			// The two producers report the font's vertical extent differently
+			// (Chromium embeds OpenType-CFF faces as Type 3 fonts, whose box is
+			// the union of glyph boxes), so the bottom edge no longer tracks the
+			// baseline; the middle of the box is the better estimate.
+			dy = (b.y0+b.y1)/2 - (a.y0+a.y1)/2
+		}
 		d := math.Hypot(dx, dy)
 		if a.page != b.page {
 			d = math.Inf(1)
@@ -158,7 +166,9 @@ func words(pdf string) ([]word, error) {
 			if err := dec.DecodeElement(&text, &se); err != nil {
 				return nil, err
 			}
-			w.text = text
+			// case-folded: synthetic small caps draw lowercase letters as
+			// capitals, and Chromium's text layer keeps the lowercase letters
+			w.text = strings.ToLower(text)
 			ws = append(ws, w)
 		}
 	}
