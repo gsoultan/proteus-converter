@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 // Package pipeline runs the shared conversion pipeline for HTML-shaped
 // sources: collect stylesheets, cascade, build boxes, lay out, paginate and
 // paint. Format front ends (HTML, Markdown, later DOCX) parse their input

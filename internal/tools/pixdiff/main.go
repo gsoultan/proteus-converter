@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 // Command pixdiff compares two PDFs page by page and reports the share of
 // pixels whose ink differs. It rasterises with pdftoppm (poppler) and is used
 // by the accuracy gate to compare proteus output with Chromium's.

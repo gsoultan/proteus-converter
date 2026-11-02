@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 // Package svg parses static SVG documents into flattened vector shapes:
 // paths with resolved fill and stroke paint, already mapped through every
 // element transform. It covers the subset that documents, icons and charts

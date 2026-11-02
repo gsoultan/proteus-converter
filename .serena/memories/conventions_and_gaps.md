@@ -32,3 +32,5 @@
   Mitered corners for differently coloured border sides, inset/outset shading and Blink's
   double-border line widths are approximated. Trailing blank space (e.g. a tall empty div at
   the end) does not create extra pages the way Chromium does.
+
+- Copyright header: every hand-written Go file starts with `// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>` followed by a blank line (so it is not the package doc). CI step "Copyright headers" fails on any tracked .go file without it, except files marked `// Code generated ... DO NOT EDIT.`

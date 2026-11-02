@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 // Package layout turns a styled HTML tree into positioned display items:
 // box generation, block and inline formatting, tables, lists, images and
 // pagination. It is format-agnostic: any front end that produces an HTML
