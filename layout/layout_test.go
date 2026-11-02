@@ -202,9 +202,9 @@ func TestFixedBoxesReachIntoPageMargins(t *testing.T) {
 				continue
 			}
 			switch {
-			case r.Y < 0 && r.H == 30:
+			case r.Y < 0 && r.H == 22.5: // 30px
 				top = true
-			case r.Y >= pageH && r.H == 20:
+			case r.Y >= pageH && r.H == 15: // 20px
 				bottom = true
 			}
 		}
