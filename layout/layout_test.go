@@ -189,8 +189,8 @@ func TestFixedBoxesReachIntoPageMargins(t *testing.T) {
 		body{margin:0}
 		.h{position:fixed;top:-50px;left:0;right:0;height:30px;background:#eef}
 		.f{position:fixed;bottom:-40px;left:0;right:0;height:20px;background:#fee}
-		p{margin:0;height:700px}
-	</style><div class="h">H</div><div class="f">F</div><p>body</p>`)
+		.sp{height:900px}
+	</style><div class="h">H</div><div class="f">F</div><div class="sp">body</div><p>end</p>`)
 	if len(pages) != 2 {
 		t.Fatalf("pages = %d, want 2", len(pages))
 	}
