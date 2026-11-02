@@ -66,6 +66,23 @@ Blink details reproduced on purpose:
   otherwise it goes at the current position plus pending margins (layoutContents deferOOF)
 - children of flex/grid containers are blockified; absolutely positioned boxes get float:none
 
+- table footer (tfoot) repeats after the last body row on every page; body rows reserve its
+  height; the repeat is dropped when the footer is taller than 1/4 of the page (Blink)
+- half-leading above the text is floored to whole px (FontHeight::AddLeading): leadingSplit
+- page area in LayoutUnits: page size ceil to 1/64 px, margins floor to 1/64 px, then ceil to
+  whole px (12mm margins on A4 give 704px wide)
+- inset box-shadow: evenodd ring outside the (spread/offset) hole, clipped to the padding box;
+  blur as layers following 1-normCDF
+- ::first-line: the first line is broken from frags built with the first-line overlay (properties
+  equal to the block's own value take the first-line value); the rest continues from the
+  normal frags after frag seq of the first line (breakFirstLine)
+- multi-column: content laid out once per trial column height with a copied Engine whose
+  PageHeight is the column height, binary search for the smallest height that fits in N columns
+  (rounded up to 1/64 px), then Paginate slices it into columns; rules sit in the gap middle
+  between used columns; gap normal = 1em
+- textdiff: Chromium embeds OpenType-CFF as Type 3, so when bbox heights differ > 20% dy uses
+  box middles
+
 gpdf quirks worked around:
 - gpdf (>= 2437d9e) tracks Tc/Tw/Tr per stream, so the old minimum letter-spacing workaround is gone
 - gpdf both measures (TextWidth) and draws (TJ) with pair kerning, GPOS first, so widths keep it

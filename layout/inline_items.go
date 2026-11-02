@@ -3,6 +3,7 @@
 package layout
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -62,6 +63,7 @@ type frag struct {
 	hang     bool // preserved space that hangs at line end (pre-wrap)
 	box      *Box // fFloat, fAbs
 	placed   bool // fFloat: already positioned
+	seq      int  // index in the frag list as built (kept by split frags)
 }
 
 type fragBuilder struct {
@@ -70,9 +72,15 @@ type fragBuilder struct {
 	frags     []*frag
 	lastSpace bool // previous emitted content was a collapsible space (or line start)
 	capNext   bool
+	// over maps a text style to its ::first-line variant (nil outside the
+	// first line pass)
+	over func(*css.Style) *css.Style
 }
 
-func (fb *fragBuilder) push(f *frag) { fb.frags = append(fb.frags, f) }
+func (fb *fragBuilder) push(f *frag) {
+	f.seq = len(fb.frags)
+	fb.frags = append(fb.frags, f)
+}
 
 // buildFrags flattens the inline content of a block container into frags.
 func (l *layouter) buildFrags(children []*Box, blockStyle *css.Style, avail float64, marker *Box) []*frag {
@@ -204,6 +212,9 @@ func applyTransform(s string, t string, capNext *bool) string {
 
 func (fb *fragBuilder) text(b *Box, ctx *inlineCtx) {
 	s := b.Style
+	if fb.over != nil {
+		s = fb.over(s)
+	}
 	ws := s.WhiteSpace
 	collapseSpaces := ws == "normal" || ws == "nowrap" || ws == "pre-line"
 	keepNewlines := ws != "normal" && ws != "nowrap"
@@ -309,6 +320,46 @@ func (fb *fragBuilder) pushSmallCaps(w string, s *css.Style, ctx *inlineCtx, dec
 	flush(len(w), true)
 }
 
+// firstLineStyle returns (and caches) s with the ::first-line properties of
+// fl applied where s inherits them from the block style bs: the first line
+// behaves as if its content were wrapped in an inline box styled by fl.
+func (e *Engine) firstLineStyle(s, bs, fl *css.Style) *css.Style {
+	key := [2]*css.Style{s, fl}
+	if c, ok := e.firstLine[key]; ok {
+		return c
+	}
+	c := *s
+	if s.Color == bs.Color {
+		c.Color = fl.Color
+	}
+	if s.FontSize == bs.FontSize {
+		c.FontSize = fl.FontSize
+	}
+	if s.FontWeight == bs.FontWeight {
+		c.FontWeight = fl.FontWeight
+	}
+	if s.FontStyle == bs.FontStyle {
+		c.FontStyle = fl.FontStyle
+	}
+	if s.FontVariant == bs.FontVariant {
+		c.FontVariant = fl.FontVariant
+	}
+	if slices.Equal(s.FontFamily, bs.FontFamily) {
+		c.FontFamily = fl.FontFamily
+	}
+	if s.LetterSpacing == bs.LetterSpacing {
+		c.LetterSpacing = fl.LetterSpacing
+	}
+	if s.WordSpacing == bs.WordSpacing {
+		c.WordSpacing = fl.WordSpacing
+	}
+	if s.TextTransform == bs.TextTransform {
+		c.TextTransform = fl.TextTransform
+	}
+	e.firstLine[key] = &c
+	return &c
+}
+
 // smallCapsStyle returns (and caches) s at the synthetic small-caps size.
 func (e *Engine) smallCapsStyle(s *css.Style) *css.Style {
 	if c, ok := e.smallCaps[s]; ok {
@@ -341,6 +392,7 @@ func (l *layouter) splitFragChars(f *frag) []*frag {
 	var out []*frag
 	for _, r := range f.text {
 		nf := l.textFrag(string(r), f.style, f.ctx, f.decos, true)
+		nf.seq = f.seq
 		out = append(out, nf)
 	}
 	if len(out) > 0 {

@@ -222,6 +222,9 @@ func (bd *Builder) element(n *html.Node, s *css.Style, parentDecos []Decoration)
 	if es != nil && es.FirstLetter != nil {
 		applyFirstLetter(b, es.FirstLetter)
 	}
+	if es != nil {
+		b.FirstLine = es.FirstLine
+	}
 	if pushedList {
 		bd.lists = bd.lists[:len(bd.lists)-1]
 	}

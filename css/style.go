@@ -107,6 +107,13 @@ type Style struct {
 	FlexBasis           Length
 	Order               int
 	RowGap, ColumnGap   Length
+	ColumnGapNormal     bool // column-gap: normal (1em in multi-column layout)
+	ColumnCount         int  // 0 = auto
+	ColumnWidth         Length
+	ColumnRuleWidth     float64
+	ColumnRuleStyle     string
+	ColumnRuleColor     Color
+	ColumnSpan          string
 	GridTemplateColumns TrackList
 	GridTemplateRows    TrackList
 	GridAutoColumns     TrackList
@@ -213,6 +220,8 @@ func (s *Style) resetNonInherited() {
 	s.FlexBasis = Auto
 	s.Order = 0
 	s.RowGap, s.ColumnGap = Length{}, Length{}
+	s.ColumnGapNormal, s.ColumnCount, s.ColumnWidth, s.ColumnSpan = true, 0, Auto, "none"
+	s.ColumnRuleWidth, s.ColumnRuleStyle, s.ColumnRuleColor = 2.25, "none", Color{}
 	s.GridTemplateColumns, s.GridTemplateRows = TrackList{}, TrackList{}
 	s.GridAutoColumns, s.GridAutoRows = TrackList{}, TrackList{}
 	s.GridTemplateAreas = nil
@@ -311,6 +320,18 @@ type Shadow struct {
 	X, Y, Blur, Spread float64
 	Color              Color
 	Inset              bool
+}
+
+// IsMulticol reports whether the box is a multi-column container.
+func (s *Style) IsMulticol() bool { return s.ColumnCount > 0 || !s.ColumnWidth.Auto }
+
+// ColumnRuleUsed returns the painted column-rule width (0 when there is none).
+func (s *Style) ColumnRuleUsed() float64 {
+	switch s.ColumnRuleStyle {
+	case "none", "hidden", "":
+		return 0
+	}
+	return s.ColumnRuleWidth
 }
 
 // OutlineUsed returns the painted outline width (0 when there is none).

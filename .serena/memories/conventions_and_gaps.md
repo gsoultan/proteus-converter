@@ -28,12 +28,16 @@
   auto-fill/auto-fit, named areas, line placement, spans, implicit tracks, row auto-flow),
   inline and file SVG (svg package), <img> with object-fit/position, background-image with
   size/position/repeat/origin/clip, linear-gradient, rounded borders (per-corner radii for uniform
-  borders and backgrounds), box-shadow, outline, ::first-letter, percentage heights, small-caps,
-  synthetic bold/italic, @font-face TrueType/OpenType-CFF/WOFF 1.0, GPOS kerning (gpdf).
+  borders and backgrounds), box-shadow (outer and inset), outline, ::first-letter, ::first-line, CSS multi-column
+  (column-count/width, columns, column-gap, column-rule; balanced), percentage heights, small-caps,
+  synthetic bold/italic, @font-face TrueType/OpenType-CFF/WOFF 1.0/WOFF2 (fonts/woff2.go, brotli
+  via andybalholm/brotli, glyf/loca/hmtx transforms reversed), GPOS kerning (gpdf), table header
+  and footer repeat on every page, SVG text rotation and inherited fonts/stylesheets.
 - Unsupported / approximated: quirks-mode UA margins (use <!DOCTYPE html>), grid-auto-flow column
   and dense, radial/conic gradients, SVG gradients (average stop color, with a warning), SVG
-  filters/masks/clipPath, overflow clipping of text, canvas/video, WOFF2, contextual alternates
-  (calt, e.g. JetBrains Mono "!=" ligatures), inset box-shadow, ::first-line, CSS columns,
+  filters/masks/clipPath, overflow clipping of text, canvas/video, WOFF2 collections, contextual
+  alternates (calt, e.g. JetBrains Mono "!=" ligatures), column-span: all, columns crossing a page
+  break (columns are balanced on one page and split by pagination),
   hierarchical outlines, text alpha, @page :first, counters, % heights inside tables/grid items.
   Mitered corners for differently coloured border sides, inset/outset shading and Blink's
   double-border line widths are approximated. Trailing blank space (e.g. a tall empty div at

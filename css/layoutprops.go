@@ -509,9 +509,61 @@ func registerLayoutProps() {
 		l, ok := parseGap(v, c)
 		if ok {
 			s.ColumnGap = l
+			s.ColumnGapNormal = strings.EqualFold(strings.TrimSpace(v), "normal")
 		}
 		return ok
-	}, func(d, s *Style) { d.ColumnGap = s.ColumnGap })
+	}, func(d, s *Style) { d.ColumnGap, d.ColumnGapNormal = s.ColumnGap, s.ColumnGapNormal })
+	def("column-count", false, func(s, _ *Style, v string, _ *computeCtx) bool {
+		v = strings.TrimSpace(v)
+		if strings.EqualFold(v, "auto") {
+			s.ColumnCount = 0
+			return true
+		}
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			return false
+		}
+		s.ColumnCount = min(n, 1000)
+		return true
+	}, func(d, s *Style) { d.ColumnCount = s.ColumnCount })
+	def("column-width", false, func(s, _ *Style, v string, c *computeCtx) bool {
+		l, ok := ParseLength(v, c.lc, false)
+		if !ok || l.Pct != 0 || (!l.Auto && l.Pt <= 0) {
+			return false
+		}
+		s.ColumnWidth = l
+		return true
+	}, func(d, s *Style) { d.ColumnWidth = s.ColumnWidth })
+	def("column-span", false, func(s, _ *Style, v string, _ *computeCtx) bool {
+		v = strings.ToLower(strings.TrimSpace(v))
+		if v != "none" && v != "all" {
+			return false
+		}
+		s.ColumnSpan = v
+		return true
+	}, func(d, s *Style) { d.ColumnSpan = s.ColumnSpan })
+	def("column-rule-width", false, func(s, _ *Style, v string, c *computeCtx) bool {
+		w, ok := parseBorderWidth(v, c)
+		if ok {
+			s.ColumnRuleWidth = w
+		}
+		return ok
+	}, func(d, s *Style) { d.ColumnRuleWidth = s.ColumnRuleWidth })
+	def("column-rule-style", false, func(s, _ *Style, v string, _ *computeCtx) bool {
+		v = strings.ToLower(strings.TrimSpace(v))
+		if !borderStyles[v] {
+			return false
+		}
+		s.ColumnRuleStyle = v
+		return true
+	}, func(d, s *Style) { d.ColumnRuleStyle = s.ColumnRuleStyle })
+	def("column-rule-color", false, func(s, _ *Style, v string, _ *computeCtx) bool {
+		col, ok := ParseColor(v, s.Color)
+		if ok {
+			s.ColumnRuleColor = col
+		}
+		return ok
+	}, func(d, s *Style) { d.ColumnRuleColor = s.ColumnRuleColor })
 
 	tracks := func(get func(*Style) *TrackList) (func(s, p *Style, v string, c *computeCtx) bool, func(d, s *Style)) {
 		return func(s, _ *Style, v string, c *computeCtx) bool {
@@ -626,6 +678,12 @@ func init() {
 	shorthandLonghands["flex"] = []string{"flex-grow", "flex-shrink", "flex-basis"}
 	shorthandLonghands["flex-flow"] = []string{"flex-direction", "flex-wrap"}
 	shorthandLonghands["gap"] = []string{"row-gap", "column-gap"}
+	shorthandLonghands["columns"] = []string{"column-width", "column-count"}
+	aliases["-webkit-column-count"] = "column-count"
+	aliases["-webkit-column-gap"] = "column-gap"
+	aliases["-webkit-column-width"] = "column-width"
+	aliases["-webkit-column-span"] = "column-span"
+	shorthandLonghands["-webkit-columns"] = shorthandLonghands["columns"]
 	shorthandLonghands["grid-gap"] = shorthandLonghands["gap"]
 	shorthandLonghands["place-items"] = []string{"align-items", "justify-items"}
 	shorthandLonghands["place-content"] = []string{"align-content", "justify-content"}
@@ -758,6 +816,21 @@ func expandLayoutShorthand(name string, toks []string, raw string) map[string]st
 			}
 		}
 		return map[string]string{long[0]: vals[0], long[1]: vals[1], long[2]: vals[2], long[3]: vals[3]}
+	case "columns", "-webkit-columns":
+		if len(toks) == 0 || len(toks) > 2 {
+			return nil
+		}
+		m := map[string]string{"column-width": "auto", "column-count": "auto"}
+		for _, t := range toks {
+			switch {
+			case strings.EqualFold(t, "auto"):
+			case isInteger(t):
+				m["column-count"] = t
+			default:
+				m["column-width"] = t
+			}
+		}
+		return m
 	case "grid-template":
 		parts := strings.SplitN(raw, "/", 2)
 		if len(parts) != 2 || strings.ContainsAny(raw, "\"'") {
@@ -767,4 +840,9 @@ func expandLayoutShorthand(name string, toks []string, raw string) map[string]st
 			"grid-template-columns": strings.TrimSpace(parts[1]), "grid-template-areas": "none"}
 	}
 	return nil
+}
+
+func isInteger(t string) bool {
+	_, err := strconv.Atoi(t)
+	return err == nil
 }

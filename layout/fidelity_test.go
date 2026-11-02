@@ -120,3 +120,54 @@ func TestSVGRotatedTextAndInheritedFont(t *testing.T) {
 		t.Errorf("SVG text font %q, want the inherited serif family", v.Face.Family)
 	}
 }
+
+// ::first-line restyles only the words on the first line box.
+func TestFirstLineStylesOnlyTheFirstLine(t *testing.T) {
+	items := layoutHTML(t, reset+`<style>p{margin:0;width:120px}p::first-line{color:#ff0000;font-weight:bold}</style>
+		<p>alpha beta gamma delta epsilon zeta eta theta iota kappa</p>`)
+	a, k := text(t, items, "alpha"), text(t, items, "kappa")
+	if a.Color.R != 1 || a.Face.Weight < 700 {
+		t.Errorf("first line word: color %+v weight %d, want red bold", a.Color, a.Face.Weight)
+	}
+	if k.Baseline <= a.Baseline || k.Color.R != 0 || k.Face.Weight >= 700 {
+		t.Errorf("later line word: baseline %.1f color %+v weight %d, want normal style below", k.Baseline, k.Color, k.Face.Weight)
+	}
+}
+
+// column-count balances the content over equal columns separated by the
+// gap, with the column rule in the middle of the gap.
+func TestColumnsBalanceAndRule(t *testing.T) {
+	var p strings.Builder
+	for i := 0; i < 12; i++ {
+		p.WriteString(`<div style="height:20px">line</div>`)
+	}
+	items := layoutHTML(t, reset+`<div style="width:320px;column-count:3;column-gap:10px;column-rule:2px solid #ff0000">`+
+		p.String()+`</div><div style="background:#00ff00;height:5px"></div>`)
+	xs := map[float64]int{}
+	for _, it := range items {
+		if v, ok := it.(*layout.TextItem); ok && v.Text == "line" {
+			xs[v.X]++
+		}
+	}
+	if len(xs) != 3 {
+		t.Fatalf("lines in %d columns, want 3: %v", len(xs), xs)
+	}
+	for x, n := range xs {
+		if n != 4 {
+			t.Errorf("column at x=%.1f holds %d lines, want 4", x, n)
+		}
+	}
+	near(t, "content after the columns", rect(t, items, 0, 255, 0).Y, 80*0.75)
+	rules := 0
+	for _, it := range items {
+		if l, ok := it.(*layout.LineItem); ok && l.Color.R == 1 {
+			rules++
+			if l.Y2-l.Y1 < 79*0.75 {
+				t.Errorf("rule height %.1f, want the column height", l.Y2-l.Y1)
+			}
+		}
+	}
+	if rules != 2 {
+		t.Errorf("%d column rules, want 2", rules)
+	}
+}

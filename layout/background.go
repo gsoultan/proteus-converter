@@ -49,6 +49,10 @@ func (l *layouter) emitBackgroundCB(b *Box, x, y, w, h, cbw float64) {
 	border, padding, content := boxAreas(s, x, y, w, h, cbw)
 	radius := s.BorderRadius[0].Resolve(w, 0)
 	l.emitShadows(s, x, y, w, h, math.Min(radius, math.Min(w, h)/2), b != l.e.canvasBox && s.BackgroundColor.A >= 1)
+	// inset shadows go above the background (color and image), under the content
+	pad := padding
+	pad.Radius = math.Max(0, math.Min(radius, math.Min(w, h)/2)-(padding.X-x))
+	defer l.emitInsetShadows(s, pad)
 	clip := pickArea(s.BackgroundClip, border, padding, content)
 	clip.Radius = math.Max(0, radius-(clip.X-x))
 	if b != l.e.canvasBox && !s.BackgroundColor.IsTransparent() && clip.W > 0 && clip.H > 0 {
@@ -464,6 +468,59 @@ func (l *layouter) emitShadows(s *css.Style, x, y, w, h, radius float64, opaque 
 			c := sh.Color
 			c.A = math.Min(alpha, 1)
 			fill(Clip{X: sx + t, Y: sy + t, W: lw, H: lh, Radius: math.Max(r-t, 0)}, c)
+		}
+	}
+}
+
+// emitInsetShadows paints inset box-shadows inside the padding box pad: the
+// part of pad outside the shadow's hole (pad moved by the offset and shrunk
+// by the spread), blurred like outer shadows by stacking translucent layers.
+func (l *layouter) emitInsetShadows(s *css.Style, pad Clip) {
+	if pad.W <= 0 || pad.H <= 0 {
+		return
+	}
+	for i := len(s.BoxShadow) - 1; i >= 0; i-- {
+		sh := s.BoxShadow[i]
+		if !sh.Inset || sh.Color.A <= 0 {
+			continue
+		}
+		hx, hy := pad.X+sh.X+sh.Spread, pad.Y+sh.Y+sh.Spread
+		hw, hh := pad.W-2*sh.Spread, pad.H-2*sh.Spread
+		hr := math.Max(pad.Radius-sh.Spread, 0)
+		// region outside the hole shrunk by e (e < 0 grows it), within pad
+		region := func(e float64, c css.Color) {
+			outer := svg.RoundRect(pad.X-1, pad.Y-1, pad.W+2, pad.H+2, 0, 0)
+			w, h := hw-2*e, hh-2*e
+			segs := outer
+			if w > 0 && h > 0 {
+				r := math.Max(hr-e, 0)
+				segs = append(segs, svg.RoundRect(hx+e, hy+e, w, h, r, r)...)
+			}
+			col := c
+			l.emit(&PathItem{M: svg.Identity, Segs: segs, Style: PathStyle{Fill: &col, EvenOdd: true}, Clip: pad, Top: pad.Y})
+		}
+		if sh.Blur <= 0 {
+			region(0, sh.Color)
+			continue
+		}
+		n := int(math.Min(32, math.Max(3, math.Ceil(sh.Blur/0.75/1.5))))
+		step := 2 * sh.Blur / float64(n)
+		sigma := sh.Blur / 2
+		prev := 0.0
+		for k := range n {
+			e := sh.Blur - step*float64(k) // points less than e inside the hole edge
+			target := sh.Color.A * (1 - normCDF((e-step)/sigma))
+			if k == n-1 {
+				target = sh.Color.A
+			}
+			alpha := 1 - (1-target)/(1-prev)
+			prev = target
+			if alpha <= 0 {
+				continue
+			}
+			c := sh.Color
+			c.A = math.Min(alpha, 1)
+			region(e, c)
 		}
 	}
 }

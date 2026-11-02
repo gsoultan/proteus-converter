@@ -129,7 +129,7 @@ func isBFC(b *Box) bool {
 	case "flow-root", "flex", "grid", "inline-block", "table-cell":
 		return true
 	}
-	return s.Float != "none" || s.Position == "absolute" || s.Position == "fixed"
+	return s.Float != "none" || s.Position == "absolute" || s.Position == "fixed" || s.IsMulticol()
 }
 
 func (l *layouter) layoutBlock(b *Box, x, y, cbw float64, pending margins, bfc bool) blockResult {
@@ -312,6 +312,8 @@ func (l *layouter) layoutBlockInner(b *Box, x, y, cbw float64, pending margins, 
 			cr = l.layoutFlex(b, cx, contentTop, cw, defH)
 		case s.IsGrid():
 			cr = l.layoutGrid(b, cx, contentTop, cw, defH)
+		case s.IsMulticol() && b.Kind == KindBlock:
+			cr = l.layoutColumns(b, cx, contentTop, cw)
 		default:
 			cr = l.layoutContents(b, cx, contentTop, cw, margins{})
 		}
