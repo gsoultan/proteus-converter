@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 // Package render paints paginated layout items through a Painter. The gpdf
 // adapter is the default backend; other backends (an image rasterizer for
 // tests, a different PDF library) only need to implement Painter.

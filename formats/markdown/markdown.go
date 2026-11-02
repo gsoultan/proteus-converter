@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 // Package markdown converts CommonMark / GitHub Flavored Markdown to PDF.
 // Markdown is rendered to HTML with goldmark and then goes through the same
 // CSS and layout pipeline as HTML, styled by a GitHub-like theme.

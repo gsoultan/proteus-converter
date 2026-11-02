@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 // Package proteus converts documents to PDF in pure Go, using gpdf as the PDF
 // backend. HTML and Markdown are supported today; Microsoft Word (DOCX) is
 // planned. Every format implements the same Converter interface and is

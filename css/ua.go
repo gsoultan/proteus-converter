@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
+
 package css
 
 // UserAgentCSS is the default stylesheet, modelled on Chromium's html.css
