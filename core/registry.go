@@ -14,6 +14,8 @@ type Registry struct {
 	mu     sync.RWMutex
 	byName map[Format]Converter
 	byExt  map[string]Format
+	// writers holds the non-PDF output writers (see output.go).
+	writers map[OutputFormat]Writer
 }
 
 // NewRegistry returns an empty registry.

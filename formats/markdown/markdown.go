@@ -86,13 +86,24 @@ func (c *Converter) document(src []byte) (*html.Node, error) {
 func (c *Converter) Convert(ctx context.Context, src io.Reader, dst io.Writer, opts ...core.Option) (err error) {
 	defer core.Recover(&err)
 	cfg := core.NewConfig(opts...)
-	data, err := io.ReadAll(src)
+	doc, err := c.Parse(ctx, src, cfg)
 	if err != nil {
 		return err
 	}
+	return pipeline.Render(ctx, pipeline.Input{Doc: doc.Root, ThemeCSS: doc.ThemeCSS}, cfg, dst)
+}
+
+// Parse implements core.Parser: it renders the Markdown to an HTML tree and
+// picks the theme stylesheet from cfg, so Markdown can be written to every
+// output format.
+func (c *Converter) Parse(_ context.Context, src io.Reader, cfg *core.Config) (*core.Document, error) {
+	data, err := io.ReadAll(src)
+	if err != nil {
+		return nil, err
+	}
 	doc, err := c.document(data)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var theme []string
 	switch {
@@ -102,7 +113,7 @@ func (c *Converter) Convert(ctx context.Context, src io.Reader, dst io.Writer, o
 	default:
 		theme = []string{themeCSS}
 	}
-	return pipeline.Render(ctx, pipeline.Input{Doc: doc, ThemeCSS: theme}, cfg, dst)
+	return &core.Document{Root: doc, ThemeCSS: theme}, nil
 }
 
 // markTaskLists adds GitHub's task-list classes: "task-list-item" on list

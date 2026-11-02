@@ -25,7 +25,11 @@
   auto-fill/auto-fit, named areas, line placement, spans, implicit tracks, row auto-flow),
   inline and file SVG (svg package), <img> with object-fit/position, background-image with
   size/position/repeat/origin/clip, linear-gradient, rounded uniform borders.
-- Unsupported / approximated: quirks-mode UA margins (use <!DOCTYPE html>), grid-auto-flow column
+- XLSX gaps: text outside tables is dropped when the document has tables (warning counts
+  blocks); nested tables are flattened into the cell text (em space between cells, newline
+  between rows); gradients/background images, text alpha, diagonal borders, column-level
+  hidden only via visibility:collapse; WOFF/system font names are passed through as-is.
+- Unsupported / approximated (PDF): quirks-mode UA margins (use <!DOCTYPE html>), grid-auto-flow column
   and dense, radial/conic gradients, SVG gradients (average stop color, with a warning), SVG
   filters/masks/clipPath, overflow clipping of text, canvas/video, WOFF/CFF,
   hierarchical outlines, synthetic bold/italic, text alpha, @page :first, counters.

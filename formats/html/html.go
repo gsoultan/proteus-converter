@@ -27,12 +27,21 @@ func (*Converter) Format() core.Format { return core.FormatHTML }
 func (*Converter) Extensions() []string { return []string{"html", "htm", "xhtml"} }
 
 // Convert implements core.Converter.
-func (*Converter) Convert(ctx context.Context, src io.Reader, dst io.Writer, opts ...core.Option) (err error) {
+func (c *Converter) Convert(ctx context.Context, src io.Reader, dst io.Writer, opts ...core.Option) (err error) {
 	defer core.Recover(&err)
 	cfg := core.NewConfig(opts...)
+	doc, err := c.Parse(ctx, src, cfg)
+	if err != nil {
+		return err
+	}
+	return pipeline.Render(ctx, pipeline.Input{Doc: doc.Root}, cfg, dst)
+}
+
+// Parse implements core.Parser, so HTML can be written to every output format.
+func (*Converter) Parse(_ context.Context, src io.Reader, _ *core.Config) (*core.Document, error) {
 	doc, err := html.Parse(src)
 	if err != nil {
-		return fmt.Errorf("proteus: parse HTML: %w", err)
+		return nil, fmt.Errorf("proteus: parse HTML: %w", err)
 	}
-	return pipeline.Render(ctx, pipeline.Input{Doc: doc}, cfg, dst)
+	return &core.Document{Root: doc}, nil
 }
