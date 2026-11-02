@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strings"
 )
 
 type word struct {
@@ -158,7 +159,9 @@ func words(pdf string) ([]word, error) {
 			if err := dec.DecodeElement(&text, &se); err != nil {
 				return nil, err
 			}
-			w.text = text
+			// case-folded: synthetic small caps draw lowercase letters as
+			// capitals, and Chromium's text layer keeps the lowercase letters
+			w.text = strings.ToLower(text)
 			ws = append(ws, w)
 		}
 	}

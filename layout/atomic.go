@@ -10,7 +10,7 @@ import (
 
 // replacedSize returns the content-box size of an image or form control.
 func (l *layouter) replacedSize(b *Box, cbw float64) (w, h float64) {
-	s := b.Style
+	s := l.style(b)
 	iw, ih, ratio, hasW, hasH := intrinsicSize(b)
 	e := l.hEdges(s, cbw)
 	extraW := e.pl + e.pr + e.bl + e.br
@@ -119,7 +119,7 @@ func (l *layouter) replacedSize(b *Box, cbw float64) (w, h float64) {
 
 // layoutAtomic lays out an atomic inline-level box at the origin (margin box top-left).
 func (l *layouter) layoutAtomic(b *Box, avail float64) *atomicBox {
-	s := b.Style
+	s := l.style(b)
 	a := &atomicBox{box: b, valign: s.VerticalAlign}
 	switch s.VerticalAlign {
 	case "sub":
@@ -147,6 +147,7 @@ func (l *layouter) layoutAtomic(b *Box, avail float64) *atomicBox {
 		} else if b.Kind == KindCheckbox {
 			sub.checkbox(b, cx, cy, w, h)
 		}
+		sub.emitOutline(s, bx, by, bw, bh)
 		a.items = sub.items
 		a.w = e.ml + bw + e.mr
 		a.h = mt + bh + mb

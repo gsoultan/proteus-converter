@@ -8,11 +8,23 @@ A4, 1cm margins, FONTCONFIG_FILE=accuracy/fonts.conf pinning generics to Liberat
 - internal/tools/textdiff pairs words from pdftotext -bbox (LCS on text, then nearest same-text
   word on the same page) and needs >= 99% words found, >= 98% within 2pt (MIN_MATCH, MIN_WITHIN,
   TOL). -v lists missing words, the largest moves and the mean shift.
-Corpus (11): boxes, flex, floats, grid, images, invoice, lists, tables, typography (HTML),
-report, sample (Markdown). Current (2026-10-31): all words found and within 1.5pt (median
-~0.4pt); raw 0.2-3.0% (typography p1 2.98% is the closest to the gate); near 0-0.31% (floats).
+Corpus (17): boxes, flex, floats, grid, images, invoice, lists, tables, typography, plus the
+complex set added 2026-11-01: catalog (images in table rows, rowspan, nested table), article
+(::first-letter drop cap, floats, inline images with every vertical-align), webfonts (@font-face
+TTF/WOFF/OTF-CFF, synthetic bold/italic, small-caps), dashboard (grid areas + flex + % heights),
+newsletter (email-style nested tables with align/bgcolor/cellpadding/border attributes), boxmodel
+(padding/margins, outline, box-shadow, per-corner radii) (HTML); report, sample (Markdown).
+Current (2026-11-01): all words found; >= 99.2% within 2pt (median 0.02-0.62pt); raw <= 2.9%;
+near <= 0.35% (floats). textdiff compares words case-insensitively (synthetic small caps).
+CI pins playwright 1.63.0 (Chromium build 1243, same as the dev container); Chromium 130 renders
+the webfonts fixture differently (264 vs 262 words), so keep CI and local on the same Chromium. accuracy/chromium.cjs passes --font-render-hinting=none:
+without it Chromium follows the machine's hinting, and on GitHub runners (full) it rounds glyph
+advances to whole px (webfonts code moved up to 19pt; reproduce locally with =full).
 Debug loop: render one file with both (node accuracy/chromium.cjs in.html out.pdf; proteus -q),
 then textdiff -v and a side-by-side pdftoppm image.
+Page area (pipeline.go, measured 2026-11-01): Chromium starts the page area at the @page margins
+rounded to whole px and makes it ceil(page - margins) px wide/high; proteus does the same. Without
+@page, Playwright's margins come out floored to px on a 595.92pt page, so fixtures still need @page.
 Fixtures must declare @page { size: A4; margin: ... }: without it Playwright's format A4 gives a
 595.92pt page with integer-px margins, which shifts everything ~1-2px and costs 2-3%.
 Fractional line heights (e.g. 1.45 x 13px) leave sub-pixel baseline differences; snapping
@@ -33,16 +45,30 @@ Blink details reproduced on purpose:
 - list symbol markers: offset=asc*2/3, bullet=(offset+1)/2 px, marker padding 7px
 - collapsed table borders (layout/collapse.go): CSS 2.1 conflict resolution, each grid line
   W px split floor(W/2) to the cell above/left, the rest below/right; table keeps outer halves
-- canvas background propagates from html/body
+- canvas background propagates from html/body and covers only the page area (not @page margins)
+- HTML align on div/p/h*/td/th/tr/tbody maps to -webkit-left/center/right (css TextAlignLegacy): block
+  children without auto margins are aligned too (layout legacyAlign), and a table resets it to start
+- table border="N": cells get border-width 1px + inset with border-color inherit (pink tables stay pink)
+- rowspan excess (TablesNG): shorter spans first, excess spread over the spanned rows in proportion
+  to their heights (evenly when all are 0) — measured, see layout fidelity_test.go
+- percentage heights resolve against the containing block's definite height (layouter.style /
+  pctH; root = page area height); inside tables and grids they still act as auto
+- ::first-letter (css ElementStyle.FirstLetter, layout applyFirstLetter): leading punctuation +
+  letter + trailing punctuation; float makes a drop cap (Box.pseudo lets it be out of flow)
+- vertical-align text-top/text-bottom for atomics and inline boxes (parent content area edges)
+- synthetic bold (weight >= 600 on a < 600 face) and italic (upright face) are drawn by gpdf
+  DrawTextSynthetic (Skia fake-bold stroke, 0.25 shear); advances are unchanged, as in Blink
+- small-caps: lowercase drawn uppercase at 0.7x (Blink's synthetic small caps)
+- box-shadow (outer; blur as stacked translucent layers following the Gaussian edge, cut out of
+  transparent boxes), outline (+offset, follows radii), per-corner border-radius (svg.RoundRect4)
 - float placement: a float is placed once its block offset is known. At the start of a container
   whose top margin may still collapse through, it waits for the next in-flow sibling's margin;
   otherwise it goes at the current position plus pending margins (layoutContents deferOOF)
 - children of flex/grid containers are blockified; absolutely positioned boxes get float:none
 
 gpdf quirks worked around:
-- Tc (letter spacing) persists across text runs and gpdf only writes it when non-zero, so
-  render/gpdf.go always passes >= 1e-4 (%g encoding forbids smaller values)
-- the pinned gpdf both measures (TextWidth) and draws (TJ) with pair kerning, so widths keep it
+- gpdf (>= 2437d9e) tracks Tc/Tw/Tr per stream, so the old minimum letter-spacing workaround is gone
+- gpdf both measures (TextWidth) and draws (TJ) with pair kerning, GPOS first, so widths keep it
 - link annotations lack /Border [0 0 0], so viewers draw a box (needs a gpdf change)
 - outlines are flat; paint order is graphics, then text, then images. Images are registered as
   XObjects through an invisible 0.01pt ImageRun and painted from a custom GraphicRun

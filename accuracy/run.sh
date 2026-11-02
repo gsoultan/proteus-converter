@@ -41,6 +41,14 @@ for f in testdata/*.html testdata/*.md; do
   "$OUT/pixdiff" -max "$MAX_MISMATCH" -near 1 -max-near "$MAX_NEAR" -diff "$OUT/$name.diff.png" \
     "$OUT/$name.chromium.pdf" "$OUT/$name.proteus.pdf" || status=1
   "$OUT/textdiff" -tol "$TOL" -min-match "$MIN_MATCH" -min-within "$MIN_WITHIN" \
-    "$OUT/$name.chromium.pdf" "$OUT/$name.proteus.pdf" || status=1
+    "$OUT/$name.chromium.pdf" "$OUT/$name.proteus.pdf" || {
+    status=1
+    # details for CI logs: which words moved and which fonts each side used
+    "$OUT/textdiff" -v -tol "$TOL" "$OUT/$name.chromium.pdf" "$OUT/$name.proteus.pdf" | head -40 || true
+    if command -v pdffonts >/dev/null; then
+      pdffonts "$OUT/$name.chromium.pdf" || true
+      pdffonts "$OUT/$name.proteus.pdf" || true
+    fi
+  }
 done
 exit $status
