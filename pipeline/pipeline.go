@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 
 	"github.com/gsoultan/proteus-converter/core"
@@ -86,8 +87,19 @@ func Render(ctx context.Context, in Input, cfg *core.Config, w io.Writer) (err e
 	if !cfg.MarginsSet {
 		marginsBox = pm
 	}
-	cw := pageSize.Width - marginsBox.Left - marginsBox.Right
-	ch := pageSize.Height - marginsBox.Top - marginsBox.Bottom
+	// Chromium lays the page area out on whole CSS pixels: the page area
+	// starts at the margins rounded to the nearest px and its size is
+	// rounded up to whole px (measured against Chromium print output). The
+	// size is computed in Blink LayoutUnits (1/64 px): the page size rounds up
+	// and the margins round down, so 12mm margins on A4 give 704px, not 703.
+	px := func(v float64) float64 { return v / 0.75 }
+	lu := func(v float64, round func(float64) float64) float64 { return round(px(v)*64-1e-6) / 64 }
+	ceilLU := func(v float64) float64 { return lu(v, math.Ceil) }
+	floorLU := func(v float64) float64 { return math.Floor(px(v)*64+1e-6) / 64 }
+	cw := math.Ceil(ceilLU(pageSize.Width)-floorLU(marginsBox.Left)-floorLU(marginsBox.Right)-1e-9) * 0.75
+	ch := math.Ceil(ceilLU(pageSize.Height)-floorLU(marginsBox.Top)-floorLU(marginsBox.Bottom)-1e-9) * 0.75
+	marginsBox.Top = math.Round(px(marginsBox.Top)) * 0.75
+	marginsBox.Left = math.Round(px(marginsBox.Left)) * 0.75
 	if cw <= 10 || ch <= 10 {
 		return fmt.Errorf("proteus: page content area too small (%.1fx%.1f pt)", cw, ch)
 	}
@@ -145,7 +157,7 @@ func Render(ctx context.Context, in Input, cfg *core.Config, w io.Writer) (err e
 	mergeMeta(&meta, cfg.Metadata)
 	p := render.NewGPDF(meta, cfg.Outline, warn)
 	d := &render.Document{PageWidth: pageSize.Width, PageHeight: pageSize.Height,
-		MarginTop: marginsBox.Top, MarginLeft: marginsBox.Left, Pages: pages}
+		MarginTop: marginsBox.Top, MarginLeft: marginsBox.Left, ContentW: cw, ContentH: ch, Pages: pages}
 	if hasCanvas {
 		d.Background = &canvas
 	}

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Product catalog</title>
+<style>
+  @page { size: A4; margin: 1.2cm; }
+  body { font-family: sans-serif; font-size: 12px; color: #111827; margin: 0; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #eef2ff; border-radius: 8px; }
+  header img { height: 32px; }
+  header h1 { font-size: 20px; margin: 0; color: #312e81; }
+  table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+  th { background: #1f2937; color: #fff; text-align: left; padding: 8px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; }
+  tbody tr:nth-child(even) td { background: #f9fafb; }
+  td.thumb { width: 64px; }
+  td.thumb img { width: 56px; height: 56px; border-radius: 6px; display: block; }
+  .name { font-weight: bold; font-size: 13px; }
+  .sku { color: #6b7280; font-size: 10px; font-family: monospace; }
+  .price { text-align: right; font-weight: bold; white-space: nowrap; }
+  .status img { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
+  .tags span { display: inline-block; padding: 2px 6px; margin: 0 3px 3px 0; border-radius: 10px; background: #e0e7ff; color: #3730a3; font-size: 10px; }
+  tfoot td { font-weight: bold; border-top: 2px solid #111827; border-bottom: none; }
+  .nested { width: 100%; border: 1px solid #d1d5db; margin: 0; }
+  .nested td { border: 1px solid #d1d5db; padding: 3px 6px; font-size: 10px; background: #fff; }
+  .note { margin-top: 16px; padding: 12px 14px 12px 60px; border-left: 4px solid #f59e0b; background: #fffbeb; position: relative; }
+  .note img { position: absolute; left: 16px; top: 12px; width: 28px; height: 28px; }
+</style>
+</head>
+<body>
+<header><h1>Spring catalog</h1><img src="assets/logo.png" alt="logo"></header>
+<table>
+  <thead><tr><th>Item</th><th>Description</th><th>Status</th><th>Variants</th><th style="text-align:right">Price</th></tr></thead>
+  <tbody>
+    <tr>
+      <td class="thumb"><img src="assets/product-1.jpg" alt="p1"></td>
+      <td><div class="name">Aurora lamp</div><div class="sku">SKU-1001-RED</div>Hand-blown glass shade with a warm 2700K bulb.</td>
+      <td class="status"><img src="assets/icon-check.png" alt="">In stock</td>
+      <td class="tags"><span>Red</span><span>Large</span><span>Dimmable</span></td>
+      <td class="price">$129.00</td>
+    </tr>
+    <tr>
+      <td class="thumb"><img src="assets/product-2.jpg" alt="p2"></td>
+      <td><div class="name">Meadow planter</div><div class="sku">SKU-2040-GRN</div>Glazed ceramic, drainage hole <img src="assets/icon-warn.png" alt="" style="width:12px;height:12px;vertical-align:middle"> ships separately.</td>
+      <td class="status"><img src="assets/icon-warn.png" alt="">Low stock</td>
+      <td>
+        <table class="nested">
+          <tr><td>Small</td><td>12 cm</td><td>$24</td></tr>
+          <tr><td>Medium</td><td>18 cm</td><td>$32</td></tr>
+          <tr><td>Large</td><td>26 cm</td><td>$45</td></tr>
+        </table>
+      </td>
+      <td class="price">from $24.00</td>
+    </tr>
+    <tr>
+      <td class="thumb"><img src="assets/product-3.jpg" alt="p3"></td>
+      <td><div class="name">Delta speaker</div><div class="sku">SKU-3311-BLU</div>Bluetooth 5.3, twenty hours of battery and a woven fabric grille.</td>
+      <td class="status"><img src="assets/icon-x.png" alt="">Sold out</td>
+      <td class="tags"><span>Blue</span><span>Portable</span></td>
+      <td class="price">$89.50</td>
+    </tr>
+    <tr>
+      <td class="thumb" rowspan="2"><img src="assets/landscape.jpg" alt="bundle" style="height:120px;object-fit:cover"></td>
+      <td colspan="2"><div class="name">Weekend bundle</div>Lamp, planter and speaker together, gift wrapped with a handwritten card.</td>
+      <td class="tags"><span>Bundle</span></td>
+      <td class="price">$219.00</td>
+    </tr>
+    <tr>
+      <td colspan="3">Includes free shipping and a two year warranty on every item in the bundle.</td>
+      <td class="price">&minus;$23.50</td>
+    </tr>
+  </tbody>
+  <tfoot><tr><td colspan="4">Total for one of each</td><td class="price">$414.00</td></tr></tfoot>
+</table>
+<div class="note"><img src="assets/icon-warn.png" alt="">Prices include VAT. Images are illustrative; colours may vary slightly between production batches and screens.</div>
+</body>
+</html>

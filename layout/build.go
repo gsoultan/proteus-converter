@@ -5,6 +5,7 @@ package layout
 import (
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/gsoultan/proteus-converter/css"
 	"github.com/gsoultan/proteus-converter/svg"
@@ -218,6 +219,12 @@ func (bd *Builder) element(n *html.Node, s *css.Style, parentDecos []Decoration)
 	if es != nil && es.After != nil {
 		b.Children = append(b.Children, bd.generated(n, es.After, decos)...)
 	}
+	if es != nil && es.FirstLetter != nil {
+		applyFirstLetter(b, es.FirstLetter)
+	}
+	if es != nil {
+		b.FirstLine = es.FirstLine
+	}
 	if pushedList {
 		bd.lists = bd.lists[:len(bd.lists)-1]
 	}
@@ -275,7 +282,8 @@ func (bd *Builder) image(n *html.Node, s *css.Style, decos []Decoration) *Box {
 
 // inlineSVG builds a replaced box for an inline <svg> element.
 func (bd *Builder) inlineSVG(n *html.Node, s *css.Style, decos []Decoration) *Box {
-	d := svg.FromNode(n, s.Color)
+	d := svg.FromNodeInherit(n, svg.Inherited{Color: s.Color, FontFamily: s.FontFamily, FontSize: s.FontSize / 0.75,
+		FontWeight: s.FontWeight, Italic: s.FontStyle != "normal"})
 	for _, w := range d.Warnings {
 		bd.warn("layout: " + w)
 	}
@@ -454,4 +462,86 @@ func (bd *Builder) resolveContent(n *html.Node, v string) string {
 		}
 	}
 	return b.String()
+}
+
+// applyFirstLetter wraps the first typographic letter unit of b's first line
+// (leading punctuation, one letter, trailing punctuation) in a ::first-letter
+// box. It reports whether the search should stop (letter found or content
+// that cannot start with a letter).
+func applyFirstLetter(b *Box, fl *css.Style) bool {
+	for i, c := range b.Children {
+		switch c.Kind {
+		case KindText:
+			if c.Style.Display == "none" {
+				continue
+			}
+			before, letter, rest := splitFirstLetter(c.Text, c.Style.WhiteSpace)
+			if letter == "" {
+				if strings.TrimSpace(c.Text) == "" {
+					continue
+				}
+				return true
+			}
+			d := withDecorations(c.Decorations, fl)
+			kind := KindInline
+			if fl.Float != "none" {
+				kind = KindBlock
+			}
+			lb := &Box{Kind: kind, Style: fl, Decorations: d, pseudo: true,
+				Children: []*Box{{Kind: KindText, Style: fl, Text: letter, Decorations: d}}}
+			var repl []*Box
+			if before != "" {
+				repl = append(repl, &Box{Kind: KindText, Style: c.Style, Text: before, Decorations: c.Decorations})
+			}
+			repl = append(repl, lb)
+			if rest != "" {
+				repl = append(repl, &Box{Kind: KindText, Style: c.Style, Text: rest, Decorations: c.Decorations})
+			}
+			b.Children = append(b.Children[:i], append(repl, b.Children[i+1:]...)...)
+			return true
+		case KindInline:
+			if applyFirstLetter(c, fl) {
+				return true
+			}
+		case KindBlock:
+			if c.Style.Float != "none" || c.Style.IsAbsolute() {
+				continue
+			}
+			return applyFirstLetter(c, fl)
+		case KindBreak, KindWordBreak:
+			continue
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+// splitFirstLetter splits s into collapsible leading white space, the
+// first-letter unit and the rest.
+func splitFirstLetter(s, whiteSpace string) (before, letter, rest string) {
+	i := 0
+	if whiteSpace != "pre" && whiteSpace != "pre-wrap" && whiteSpace != "break-spaces" {
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == '\f') {
+			i++
+		}
+	}
+	j := i
+	rs := []rune(s[i:])
+	k := 0
+	for k < len(rs) && unicode.IsPunct(rs[k]) {
+		k++
+	}
+	if k >= len(rs) || unicode.IsSpace(rs[k]) {
+		return "", "", s
+	}
+	k++ // the letter itself
+	for k < len(rs) && unicode.IsMark(rs[k]) {
+		k++
+	}
+	for k < len(rs) && unicode.IsPunct(rs[k]) {
+		k++
+	}
+	n := len(string(rs[:k]))
+	return s[:j], s[j : j+n], s[j+n:]
 }

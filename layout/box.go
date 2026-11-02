@@ -43,8 +43,9 @@ type Box struct {
 	BgImage *Image // background-image
 	Alt     string
 
-	Marker *Box   // list-item marker content (inline box)
-	Symbol string // "disc", "circle" or "square" for markers painted as shapes
+	Marker    *Box       // list-item marker content (inline box)
+	FirstLine *css.Style // ::first-line style of a block container
+	Symbol    string     // "disc", "circle" or "square" for markers painted as shapes
 
 	Href     string // links
 	ID       string // fragment target
@@ -55,6 +56,7 @@ type Box struct {
 	ColSpan, RowSpan int
 	RowGroup         string // "header", "body", "footer" for KindRowGroup
 	collapsed        bool   // table whose collapsed borders were resolved
+	pseudo           bool   // generated box with its own style (::first-letter), may be out of flow
 
 	Decorations []Decoration // text decorations propagated from ancestors (including self)
 }
@@ -92,5 +94,5 @@ func (b *Box) isInlineLevel() bool { return !b.isBlockLevel() }
 
 // outOfFlow reports whether the box is floated or absolutely positioned.
 func (b *Box) outOfFlow() bool {
-	return b.Kind != KindText && b.Style != nil && b.Style.IsOutOfFlow() && b.Node != nil
+	return b.Kind != KindText && b.Style != nil && b.Style.IsOutOfFlow() && (b.Node != nil || b.pseudo)
 }

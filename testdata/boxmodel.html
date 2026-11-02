@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Box model</title>
+<style>
+  @page { size: A4; margin: 1cm; }
+  body { font-family: sans-serif; font-size: 12px; color: #111; }
+  .wrap { width: 480px; padding: 10px 5%; margin: 0 auto; border: 3px double #4b5563; background: #f9fafb; }
+  .a { margin: 12px 0; padding: 8px 12px 16px 24px; border: 2px solid #2563eb; background: #dbeafe; }
+  .b { margin: 20px -10px; padding: 4%; border-width: 1px 4px 8px 12px; border-style: solid; border-color: #dc2626 #16a34a #2563eb #f59e0b; }
+  .c { box-sizing: border-box; width: 50%; padding: 10px; border: 5px solid #111; margin-left: auto; }
+  .d { width: 50%; padding: 10px; border: 5px solid #111; }
+  .collapse-outer { margin-top: 30px; background: #fef3c7; }
+  .collapse-inner { margin-top: 20px; margin-bottom: 25px; background: #fde68a; }
+  .ib { display: inline-block; padding: 6px 10px; margin: 4px; border: 1px solid #7c3aed; background: #ede9fe; vertical-align: middle; }
+  .ib.tall { padding: 18px 10px; }
+  .dashed { border: 2px dashed #0ea5e9; padding: 8px; margin: 10px 0; }
+  .dotted { border: 3px dotted #e11d48; padding: 8px; margin: 10px 0; }
+  .round { border-radius: 16px 4px 16px 4px; border: 2px solid #0f766e; padding: 10px 14px; background: #ccfbf1; }
+  .outline { outline: 2px solid #f97316; outline-offset: 3px; margin: 14px 4px; padding: 6px; }
+  .shadow { box-shadow: 3px 3px 0 #9ca3af; border: 1px solid #6b7280; padding: 8px; margin: 10px 0; }
+  .img-box img { padding: 6px; border: 2px solid #374151; margin: 0 8px 0 0; background: #e5e7eb; vertical-align: top; }
+  .minmax { min-height: 40px; max-width: 300px; border: 1px solid #000; padding: 4px; }
+  .negative { margin-top: -6px; margin-left: 20px; background: #fecaca; padding: 4px; }
+  span.pad { padding: 4px 8px; background: #fde047; border: 1px solid #ca8a04; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="a">Asymmetric padding 8 / 12 / 16 / 24 with a 2px border.</div>
+  <div class="b">Percentage padding (4% of the containing width), negative horizontal margins and four different border widths and colours.</div>
+  <div class="c">border-box, 50% wide, pushed right with margin-left: auto.</div>
+  <div class="d">content-box, 50% wide plus padding and border.</div>
+  <div class="collapse-outer"><div class="collapse-inner">The inner top margin collapses through the outer box.</div></div>
+  <p>Inline boxes: <span class="ib">one</span><span class="ib tall">two tall</span><span class="ib">three</span> and an inline <span class="pad">padded span</span> whose padding does not move the line.</p>
+  <div class="dashed">Dashed border.</div>
+  <div class="dotted">Dotted border.</div>
+  <div class="round">Different corner radii on each corner.</div>
+  <div class="outline">Outline with an offset, outside the border box.</div>
+  <div class="shadow">Box shadow offset by three pixels.</div>
+  <div class="img-box"><img src="assets/product-1.jpg" width="60" height="60" alt=""><img src="assets/product-3.jpg" width="40" height="40" alt="">Images with padding, border and margin, aligned to the top.</div>
+  <div class="minmax">min-height 40px and max-width 300px.</div>
+  <div class="negative">Negative top margin pulls this box up.</div>
+</div>
+</body>
+</html>

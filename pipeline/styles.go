@@ -230,7 +230,7 @@ func pageSize(v string, cur core.PageSize, lc css.LengthContext) core.PageSize {
 	return out
 }
 
-// loadFontFaces registers @font-face fonts (TrueType/OpenType-glyf only).
+// loadFontFaces registers @font-face fonts (TrueType and OpenType, glyf or CFF outlines).
 func loadFontFaces(ctx context.Context, sheets []parsedSheet, loader core.ResourceLoader, res *fonts.Resolver, warn func(string)) {
 	for _, ps := range sheets {
 		for _, ff := range ps.sheet.FontFaces {
@@ -280,14 +280,24 @@ func loadFontFaces(ctx context.Context, sheets []parsedSheet, loader core.Resour
 						format = strings.ToLower(css.Unquote(args))
 					}
 				}
-				lu := strings.ToLower(u)
-				if strings.HasPrefix(format, "woff") || strings.HasSuffix(lu, ".woff") || strings.HasSuffix(lu, ".woff2") {
-					continue
+				if format == "embedded-opentype" || format == "svg" {
+					continue // formats Chromium does not load either
 				}
 				data, err := loader.Load(ctx, core.ResolveURL(ps.base, u))
 				if err != nil {
 					warn("fonts: @font-face " + family + ": " + err.Error())
 					continue
+				}
+				if fonts.IsWOFF2(data) {
+					if data, err = fonts.DecodeWOFF2(data); err != nil {
+						warn("fonts: @font-face " + family + ": " + err.Error())
+						continue
+					}
+				} else if fonts.IsWOFF(data) {
+					if data, err = fonts.DecodeWOFF(data); err != nil {
+						warn("fonts: @font-face " + family + ": " + err.Error())
+						continue
+					}
 				}
 				if err := res.AddData(data, family, weight, italic); err != nil {
 					warn("fonts: @font-face " + family + ": " + err.Error())
@@ -297,7 +307,7 @@ func loadFontFaces(ctx context.Context, sheets []parsedSheet, loader core.Resour
 				break
 			}
 			if !loaded {
-				warn("fonts: @font-face " + family + ": no usable TrueType source (WOFF/WOFF2 and CFF fonts are not supported yet)")
+				warn("fonts: @font-face " + family + ": no usable TrueType/OpenType/WOFF/WOFF2 source")
 			}
 		}
 	}

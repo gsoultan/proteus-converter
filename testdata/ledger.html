@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Quarterly sales ledger</title>
+<style>
+  @page { size: A4; margin: 15mm 12mm; }
+  body { font-family: sans-serif; font-size: 11px; color: #1f2937; line-height: 1.4; margin: 0; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 14px; margin: 18px 0 6px; color: #1e3a8a; }
+  p { margin: 0 0 8px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 12px; }
+  th, td { border: 1px solid #cbd5e1; padding: 3px 6px; text-align: left; }
+  thead th { background: #1e3a8a; color: #fff; }
+  tfoot td { background: #e2e8f0; font-weight: bold; }
+  tbody tr:nth-child(even) td { background: #f1f5f9; }
+  td.n, th.n { text-align: right; }
+  .two { display: flex; gap: 12px; }
+  .two table { flex: 1; }
+  .sep { table-layout: fixed; border-collapse: separate; border-spacing: 2px; }
+  .sep td { border: 1px solid #94a3b8; background: #fefce8; }
+  .break { break-before: page; }
+  .keep { break-inside: avoid; }
+</style>
+</head>
+<body>
+<h1>Quarterly sales ledger</h1>
+<p>Every order of the quarter, one row each. The ledger runs over several pages; its column headings and totals repeat on each page the way browsers print a table with thead and tfoot.</p>
+<table>
+  <thead><tr><th>Order</th><th>Product</th><th>Region</th><th class=n>Qty</th><th class=n>Unit</th><th class=n>Amount</th></tr></thead>
+  <tfoot><tr><td colspan=5>Total for the quarter</td><td class=n>1,234,567.89</td></tr></tfoot>
+  <tbody>
+<tr><td>1001</td><td>Bracket B-01</td><td>North</td><td class=n>168</td><td class=n>15.90</td><td class=n>2,671.20</td></tr>
+<tr><td>1002</td><td>Gadget C-02</td><td>East</td><td class=n>40</td><td class=n>84.50</td><td class=n>3,380.00</td></tr>
+<tr><td>1003</td><td>Gizmo D-03</td><td>North</td><td class=n>301</td><td class=n>6.40</td><td class=n>1,926.40</td></tr>
+<tr><td>1004</td><td>Bracket E-04</td><td>North</td><td class=n>47</td><td class=n>44.90</td><td class=n>2,110.30</td></tr>
+<tr><td>1005</td><td>Bracket F-05</td><td>North</td><td class=n>126</td><td class=n>9.70</td><td class=n>1,222.20</td></tr>
+<tr><td>1006</td><td>Gadget G-06</td><td>South</td><td class=n>426</td><td class=n>58.40</td><td class=n>24,878.40</td></tr>
+<tr><td>1007</td><td>Widget H-07</td><td>Central</td><td class=n>325</td><td class=n>64.70</td><td class=n>21,027.50</td></tr>
+<tr><td>1008</td><td>Widget I-08</td><td>South</td><td class=n>302</td><td class=n>41.10</td><td class=n>12,412.20</td></tr>
+<tr><td>1009</td><td>Sprocket J-09</td><td>East</td><td class=n>26</td><td class=n>57.50</td><td class=n>1,495.00</td></tr>
+<tr><td>1010</td><td>Gadget K-10</td><td>Central</td><td class=n>217</td><td class=n>15.20</td><td class=n>3,298.40</td></tr>
+<tr><td>1011</td><td>Sprocket L-11</td><td>North</td><td class=n>160</td><td class=n>57.80</td><td class=n>9,248.00</td></tr>
+<tr><td>1012</td><td>Gizmo M-12</td><td>East</td><td class=n>300</td><td class=n>58.90</td><td class=n>17,670.00</td></tr>
+<tr><td>1013</td><td>Gadget N-13</td><td>Central</td><td class=n>52</td><td class=n>56.50</td><td class=n>2,938.00</td></tr>
+<tr><td>1014</td><td>Gizmo O-14</td><td>West</td><td class=n>33</td><td class=n>63.80</td><td class=n>2,105.40</td></tr>
+<tr><td>1015</td><td>Bracket P-15</td><td>East</td><td class=n>351</td><td class=n>54.90</td><td class=n>19,269.90</td></tr>
+<tr><td>1016</td><td>Valve Q-16</td><td>East</td><td class=n>241</td><td class=n>60.40</td><td class=n>14,556.40</td></tr>
+<tr><td>1017</td><td>Sprocket R-17</td><td>South</td><td class=n>156</td><td class=n>25.90</td><td class=n>4,040.40</td></tr>
+<tr><td>1018</td><td>Doohickey S-18</td><td>Central</td><td class=n>44</td><td class=n>59.30</td><td class=n>2,609.20</td></tr>
+<tr><td>1019</td><td>Valve T-19</td><td>East</td><td class=n>256</td><td class=n>35.60</td><td class=n>9,113.60</td></tr>
+<tr><td>1020</td><td>Gadget U-20</td><td>Central</td><td class=n>314</td><td class=n>7.90</td><td class=n>2,480.60</td></tr>
+<tr><td>1021</td><td>Flange V-21</td><td>South</td><td class=n>217</td><td class=n>17.30</td><td class=n>3,754.10</td></tr>
+<tr><td>1022</td><td>Bracket W-22</td><td>North</td><td class=n>480</td><td class=n>50.50</td><td class=n>24,240.00</td></tr>
+<tr><td>1023</td><td>Flange X-23</td><td>East</td><td class=n>345</td><td class=n>8.40</td><td class=n>2,898.00</td></tr>
+<tr><td>1024</td><td>Valve Y-24</td><td>Central</td><td class=n>358</td><td class=n>36.30</td><td class=n>12,995.40</td></tr>
+<tr><td>1025</td><td>Gadget Z-25</td><td>North</td><td class=n>411</td><td class=n>47.20</td><td class=n>19,399.20</td></tr>
+<tr><td>1026</td><td>Gadget A-26</td><td>North</td><td class=n>141</td><td class=n>49.00</td><td class=n>6,909.00</td></tr>
+<tr><td>1027</td><td>Doohickey B-27</td><td>Central</td><td class=n>377</td><td class=n>72.30</td><td class=n>27,257.10</td></tr>
+<tr><td>1028</td><td>Valve C-28</td><td>East</td><td class=n>351</td><td class=n>84.60</td><td class=n>29,694.60</td></tr>
+<tr><td>1029</td><td>Flange D-29</td><td>North</td><td class=n>369</td><td class=n>40.00</td><td class=n>14,760.00</td></tr>
+<tr><td>1030</td><td>Sprocket E-30</td><td>Central</td><td class=n>239</td><td class=n>36.80</td><td class=n>8,795.20</td></tr>
+<tr><td>1031</td><td>Widget F-31</td><td>South</td><td class=n>62</td><td class=n>51.00</td><td class=n>3,162.00</td></tr>
+<tr><td>1032</td><td>Sprocket G-32</td><td>South</td><td class=n>396</td><td class=n>29.90</td><td class=n>11,840.40</td></tr>
+<tr><td>1033</td><td>Valve H-33</td><td>North</td><td class=n>206</td><td class=n>40.50</td><td class=n>8,343.00</td></tr>
+<tr><td>1034</td><td>Bracket I-34</td><td>Central</td><td class=n>88</td><td class=n>46.40</td><td class=n>4,083.20</td></tr>
+<tr><td>1035</td><td>Bracket J-35</td><td>Central</td><td class=n>145</td><td class=n>14.50</td><td class=n>2,102.50</td></tr>
+<tr><td>1036</td><td>Bracket K-36</td><td>East</td><td class=n>145</td><td class=n>72.80</td><td class=n>10,556.00</td></tr>
+<tr><td>1037</td><td>Gizmo L-37</td><td>South</td><td class=n>352</td><td class=n>39.40</td><td class=n>13,868.80</td></tr>
+<tr><td>1038</td><td>Sprocket M-38</td><td>South</td><td class=n>45</td><td class=n>18.50</td><td class=n>832.50</td></tr>
+<tr><td>1039</td><td>Widget N-39</td><td>West</td><td class=n>340</td><td class=n>24.30</td><td class=n>8,262.00</td></tr>
+<tr><td>1040</td><td>Sprocket O-40</td><td>East</td><td class=n>428</td><td class=n>60.80</td><td class=n>26,022.40</td></tr>
+<tr><td>1041</td><td>Sprocket P-41</td><td>West</td><td class=n>147</td><td class=n>0.90</td><td class=n>132.30</td></tr>
+<tr><td>1042</td><td>Flange Q-42</td><td>South</td><td class=n>276</td><td class=n>38.30</td><td class=n>10,570.80</td></tr>
+<tr><td>1043</td><td>Widget R-43</td><td>West</td><td class=n>356</td><td class=n>88.40</td><td class=n>31,470.40</td></tr>
+<tr><td>1044</td><td>Bracket S-44</td><td>West</td><td class=n>463</td><td class=n>89.60</td><td class=n>41,484.80</td></tr>
+<tr><td>1045</td><td>Gadget T-45</td><td>West</td><td class=n>207</td><td class=n>40.80</td><td class=n>8,445.60</td></tr>
+<tr><td>1046</td><td>Widget U-46</td><td>South</td><td class=n>327</td><td class=n>41.50</td><td class=n>13,570.50</td></tr>
+<tr><td>1047</td><td>Valve V-47</td><td>South</td><td class=n>37</td><td class=n>21.80</td><td class=n>806.60</td></tr>
+<tr><td>1048</td><td>Widget W-48</td><td>North</td><td class=n>59</td><td class=n>35.30</td><td class=n>2,082.70</td></tr>
+<tr><td>1049</td><td>Sprocket X-49</td><td>Central</td><td class=n>3</td><td class=n>58.50</td><td class=n>175.50</td></tr>
+<tr><td>1050</td><td>Widget Y-50</td><td>North</td><td class=n>54</td><td class=n>37.70</td><td class=n>2,035.80</td></tr>
+<tr><td>1051</td><td>Bracket Z-51</td><td>South</td><td class=n>450</td><td class=n>21.70</td><td class=n>9,765.00</td></tr>
+<tr><td>1052</td><td>Flange A-52</td><td>Central</td><td class=n>327</td><td class=n>26.30</td><td class=n>8,600.10</td></tr>
+<tr><td>1053</td><td>Gadget B-53</td><td>North</td><td class=n>189</td><td class=n>49.00</td><td class=n>9,261.00</td></tr>
+<tr><td>1054</td><td>Valve C-54</td><td>West</td><td class=n>437</td><td class=n>50.40</td><td class=n>22,024.80</td></tr>
+<tr><td>1055</td><td>Gadget D-55</td><td>South</td><td class=n>250</td><td class=n>32.40</td><td class=n>8,100.00</td></tr>
+<tr><td>1056</td><td>Flange E-56</td><td>East</td><td class=n>55</td><td class=n>77.20</td><td class=n>4,246.00</td></tr>
+<tr><td>1057</td><td>Sprocket F-57</td><td>Central</td><td class=n>248</td><td class=n>85.30</td><td class=n>21,154.40</td></tr>
+<tr><td>1058</td><td>Flange G-58</td><td>South</td><td class=n>14</td><td class=n>21.50</td><td class=n>301.00</td></tr>
+<tr><td>1059</td><td>Widget H-59</td><td>Central</td><td class=n>356</td><td class=n>56.10</td><td class=n>19,971.60</td></tr>
+<tr><td>1060</td><td>Gadget I-60</td><td>East</td><td class=n>155</td><td class=n>66.30</td><td class=n>10,276.50</td></tr>
+<tr><td>1061</td><td>Sprocket J-61</td><td>East</td><td class=n>268</td><td class=n>38.00</td><td class=n>10,184.00</td></tr>
+<tr><td>1062</td><td>Flange K-62</td><td>South</td><td class=n>398</td><td class=n>23.30</td><td class=n>9,273.40</td></tr>
+<tr><td>1063</td><td>Gizmo L-63</td><td>South</td><td class=n>316</td><td class=n>83.50</td><td class=n>26,386.00</td></tr>
+<tr><td>1064</td><td>Gizmo M-64</td><td>South</td><td class=n>421</td><td class=n>41.50</td><td class=n>17,471.50</td></tr>
+<tr><td>1065</td><td>Flange N-65</td><td>North</td><td class=n>268</td><td class=n>50.90</td><td class=n>13,641.20</td></tr>
+<tr><td>1066</td><td>Doohickey O-66</td><td>West</td><td class=n>17</td><td class=n>81.40</td><td class=n>1,383.80</td></tr>
+<tr><td>1067</td><td>Flange P-67</td><td>West</td><td class=n>135</td><td class=n>20.30</td><td class=n>2,740.50</td></tr>
+<tr><td>1068</td><td>Flange Q-68</td><td>East</td><td class=n>416</td><td class=n>74.50</td><td class=n>30,992.00</td></tr>
+<tr><td>1069</td><td>Gadget R-69</td><td>South</td><td class=n>44</td><td class=n>23.00</td><td class=n>1,012.00</td></tr>
+<tr><td>1070</td><td>Flange S-70</td><td>South</td><td class=n>243</td><td class=n>20.60</td><td class=n>5,005.80</td></tr>
+  </tbody>
+</table>
+<h2>Regions side by side</h2>
+<div class="two keep">
+<table><thead><tr><th>Region</th><th class=n>Q1</th><th class=n>Q2</th><th class=n>Change</th></tr></thead><tbody><tr><th scope=row>North</th><td class=n>594</td><td class=n>739</td><td class=n>+24.4%</td></tr><tr><th scope=row>South</th><td class=n>724</td><td class=n>101</td><td class=n>-86.0%</td></tr><tr><th scope=row>East</th><td class=n>590</td><td class=n>768</td><td class=n>+30.2%</td></tr><tr><th scope=row>West</th><td class=n>452</td><td class=n>758</td><td class=n>+67.7%</td></tr><tr><th scope=row>Central</th><td class=n>186</td><td class=n>776</td><td class=n>+317.2%</td></tr></tbody></table>
+<table><thead><tr><th>Region</th><th class=n>Q1</th><th class=n>Q2</th><th class=n>Change</th></tr></thead><tbody><tr><th scope=row>Central</th><td class=n>186</td><td class=n>776</td><td class=n>+317.2%</td></tr><tr><th scope=row>West</th><td class=n>452</td><td class=n>758</td><td class=n>+67.7%</td></tr><tr><th scope=row>East</th><td class=n>590</td><td class=n>768</td><td class=n>+30.2%</td></tr><tr><th scope=row>South</th><td class=n>724</td><td class=n>101</td><td class=n>-86.0%</td></tr><tr><th scope=row>North</th><td class=n>594</td><td class=n>739</td><td class=n>+24.4%</td></tr></tbody></table>
+</div>
+<h2 class="break">Separated borders, fixed layout</h2>
+<table class="sep">
+  <tr><td>Alpha</td><td>Bravo</td><td>Charlie</td><td>Delta</td></tr>
+  <tr><td colspan=2>Echo spans two columns</td><td rowspan=2>Foxtrot spans two rows with a longer label</td><td>Golf</td></tr>
+  <tr><td>Hotel</td><td>India</td><td>Juliet</td></tr>
+</table>
+<h2>Notes table that must not split</h2>
+<table class="keep">
+  <caption style="caption-side: bottom; text-align: left; color: #64748b; padding-top: 4px">Table 3. Notes kept together on one page.</caption>
+  <thead><tr><th>#</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Shipping costs are included in the unit price for orders above 100 units.</td></tr>
+    <tr><td>2</td><td>Returns are booked in the quarter in which they arrive, not when the order was placed.</td></tr>
+    <tr><td>3</td><td>Amounts are rounded to cents; totals may differ from the sum of rows by a few cents.</td></tr>
+  </tbody>
+</table>
+</body>
+</html>

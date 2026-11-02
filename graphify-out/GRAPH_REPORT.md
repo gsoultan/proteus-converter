@@ -1,17 +1,17 @@
-# Graph Report - proteus-converter  (2026-11-01)
+# Graph Report - proteus-converter  (2026-11-02)
 
 ## Corpus Check
-- 77 files · ~72,983 words
+- 82 files · ~87,958 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 3 file(s) not represented in the graph (top: (none) 1, .conf 1, .css 1)
+- Unclassified: 10 file(s) not represented in the graph (top: (none) 2, .ttf 2, .otf 2)
 
 ## Summary
-- 902 nodes · 3167 edges · 41 communities (35 shown, 6 thin omitted)
-- Extraction: 90% EXTRACTED · 10% INFERRED · 0% AMBIGUOUS · INFERRED: 302 edges (avg confidence: 0.86)
+- 971 nodes · 3501 edges · 45 communities (35 shown, 10 thin omitted)
+- Extraction: 90% EXTRACTED · 10% INFERRED · 0% AMBIGUOUS · INFERRED: 364 edges (avg confidence: 0.86)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `6294ca73`
+- Built from commit: `aa68927e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -21,37 +21,40 @@
 - frag
 - Resolver
 - ParseLength
-- testing.T
+- Style
 - golang.org/x/net/html.Node
 - parser
 - steps
-- proteus.go
-- Clip
+- hardening_test.go
+- proteus-converter
 - Format
 - markdown.go
-- .element
+- svg.go
 - pixdiff/main.go
 - chromium.cjs
 - Proteus sample
 - run.sh
 - github.com/gsoultan/proteus-converter
-- layouter
+- .layoutBlockInner
 - .layoutAtomic
-- .absItems
+- Convert
 - Render
 - ConvertBytes
 - Box
-- Seg
-- .placeFloat
-- layouter
+- collectSheets
+- TextItem
+- .emit
 - .layoutTable
 - Paint
-- Config
-- Matrix
+- rgb
+- styles.go
 - Converter
 - .Paginate
-- Image
+- proteus/main.go
+- ResourceLoader
+- collapseBorders
 - textdiff/main.go
+- Decoration
 - Quarterly Engineering Report
 - Color
 - accuracy_and_blink_quirks.md
@@ -59,28 +62,28 @@
 - project_overview.md
 
 ## God Nodes (most connected - your core abstractions)
-1. `Box` - 99 edges
-2. `Style` - 87 edges
-3. `layouter` - 76 edges
-4. `GPDF` - 72 edges
-5. `Painter` - 63 edges
-6. `Length` - 47 edges
-7. `parser` - 47 edges
-8. `Cascade` - 46 edges
-9. `Engine` - 45 edges
+1. `Style` - 106 edges
+2. `Box` - 104 edges
+3. `layouter` - 83 edges
+4. `GPDF` - 76 edges
+5. `Painter` - 68 edges
+6. `Engine` - 51 edges
+7. `Length` - 48 edges
+8. `parser` - 48 edges
+9. `Cascade` - 47 edges
 10. `Resolver` - 42 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Design` --references--> `Converter`  [INFERRED]
   README.md → core/converter.go
+- `Security` --references--> `WithMaxResourceSize()`  [INFERRED]
+  README.md → core/options.go
 - `Robustness and resource use` --references--> `WithMaxPages()`  [INFERRED]
+  README.md → core/options.go
+- `CSS support` --references--> `WithWarningHandler()`  [INFERRED]
   README.md → core/options.go
 - `Design` --references--> `Registry`  [INFERRED]
   README.md → core/registry.go
-- `Robustness and resource use` --references--> `FuzzParse()`  [INFERRED]
-  README.md → css/fuzz_test.go
-- `CSS support` --references--> `align()`  [INFERRED]
-  README.md → internal/tools/textdiff/main.go
 
 ## Import Cycles
 - 2-file cycle: `fuzz_test.go -> leak_test.go -> fuzz_test.go`
@@ -89,6 +92,8 @@
 - 2-file cycle: `fuzz_test.go -> hardening_test.go -> fuzz_test.go`
 - 2-file cycle: `hardening_test.go -> proteus_test.go -> hardening_test.go`
 - 2-file cycle: `fuzz_test.go -> proteus_test.go -> fuzz_test.go`
+- 2-file cycle: `layout/fidelity_test.go -> layout/hardening_test.go -> layout/fidelity_test.go`
+- 2-file cycle: `layout/fidelity_test.go -> layout/layout_test.go -> layout/fidelity_test.go`
 - 2-file cycle: `layout/hardening_test.go -> layout/layout_test.go -> layout/hardening_test.go`
 - 3-file cycle: `fuzz_test.go -> hardening_test.go -> leak_test.go -> fuzz_test.go`
 - 3-file cycle: `fuzz_test.go -> proteus_test.go -> leak_test.go -> fuzz_test.go`
@@ -98,72 +103,70 @@
 - 3-file cycle: `hardening_test.go -> leak_test.go -> proteus_test.go -> hardening_test.go`
 - 3-file cycle: `fuzz_test.go -> proteus_test.go -> hardening_test.go -> fuzz_test.go`
 - 3-file cycle: `fuzz_test.go -> hardening_test.go -> proteus_test.go -> fuzz_test.go`
+- 3-file cycle: `layout/fidelity_test.go -> layout/hardening_test.go -> layout/layout_test.go -> layout/fidelity_test.go`
+- 3-file cycle: `layout/fidelity_test.go -> layout/layout_test.go -> layout/hardening_test.go -> layout/fidelity_test.go`
 - 4-file cycle: `fuzz_test.go -> hardening_test.go -> proteus_test.go -> leak_test.go -> fuzz_test.go`
-- 4-file cycle: `fuzz_test.go -> proteus_test.go -> hardening_test.go -> leak_test.go -> fuzz_test.go`
-- 4-file cycle: `fuzz_test.go -> proteus_test.go -> leak_test.go -> hardening_test.go -> fuzz_test.go`
-- 4-file cycle: `fuzz_test.go -> leak_test.go -> hardening_test.go -> proteus_test.go -> fuzz_test.go`
-- 4-file cycle: `fuzz_test.go -> hardening_test.go -> leak_test.go -> proteus_test.go -> fuzz_test.go`
 
-## Communities (41 total, 6 thin omitted)
+## Communities (45 total, 10 thin omitted)
 
 ### Community 0 - "GPDF"
-Cohesion: 0.16
-Nodes (15): BackgroundSize, Cascade, Length, init(), sideNames(), AnchorItem, BookmarkItem, alpha() (+7 more)
+Cohesion: 0.10
+Nodes (46): Cascade, Length, init(), sideNames(), TestStandardFallback(), TestSystemChain(), AnchorItem, BookmarkItem (+38 more)
 
 ### Community 1 - "options.go"
-Cohesion: 0.07
-Nodes (41): FontSource, Option, Cm(), Config, Margins, Metadata, PageSize, NewConfig() (+33 more)
+Cohesion: 0.12
+Nodes (27): FontSource, Option, Cm(), Margins, NewConfig(), UniformMargins(), WithBaseURL(), WithFont() (+19 more)
 
 ### Community 2 - "frag"
-Cohesion: 0.07
-Nodes (25): LineHeight, Decoration, Style, fragIntrinsic(), relativeOffset(), textContent(), ctxExtent, Decoration (+17 more)
+Cohesion: 0.11
+Nodes (20): fragIntrinsic(), atomicBox, ctxExtent, frag, fragBuilder, fragKind, firstUnplacedFloat(), hasContent() (+12 more)
 
 ### Community 3 - "Resolver"
-Cohesion: 0.07
-Nodes (26): chainKey, Face, TestStandardFallback(), TestSystemChain(), Metrics, classOf(), Resolver, Run (+18 more)
+Cohesion: 0.06
+Nodes (34): chainKey, Face, FuzzDecodeWOFF2(), TestDecodeWOFF2(), Metrics, classOf(), Resolver, Run (+26 more)
 
 ### Community 4 - "ParseLength"
 Cohesion: 0.06
-Nodes (66): calcParser, calcVal, ParseColor(), parseHex(), computeCtx, FuzzParse(), expandLayoutShorthand(), GridLine (+58 more)
+Nodes (70): calcParser, calcVal, ParseColor(), parseHex(), computeCtx, FuzzParse(), expandLayoutShorthand(), GridLine (+62 more)
 
-### Community 5 - "testing.T"
-Cohesion: 0.11
-Nodes (35): isIgnorableSelector(), NewCascade(), selectorKey(), rgb255(), computeDoc(), find(), TestCascadeOrder(), TestLayoutProperties() (+27 more)
+### Community 5 - "Style"
+Cohesion: 0.10
+Nodes (12): BackgroundSize, LineHeight, propDef, Style, clampWidth(), legacyAlign(), relativeOffset(), columnGeometry() (+4 more)
 
 ### Community 6 - "golang.org/x/net/html.Node"
-Cohesion: 0.09
-Nodes (30): ResolveURL(), blockify(), ElementStyle, sortDecls(), substituteVars(), ancestorTable(), attr(), htmlColor() (+22 more)
+Cohesion: 0.08
+Nodes (28): blockify(), ElementStyle, sortDecls(), substituteVars(), ancestorTable(), attr(), htmlColor(), htmlLength() (+20 more)
 
 ### Community 7 - "parser"
-Cohesion: 0.12
-Nodes (25): AtPage, rankOf(), compiledRule, FontFace, Import, MediaContext, splitAnd(), MediaMatcher (+17 more)
+Cohesion: 0.09
+Nodes (32): AtPage, isIgnorableSelector(), NewCascade(), rankOf(), selectorKey(), rgb255(), compiledRule, computeDoc() (+24 more)
 
 ### Community 8 - "steps"
 Cohesion: 0.11
 Nodes (24): runs-on, steps, runs-on, steps, jobs, accuracy, fuzz, test (+16 more)
 
-### Community 9 - "proteus.go"
+### Community 9 - "hardening_test.go"
 Cohesion: 0.16
-Nodes (15): fail(), main(), parsePage(), pngHeader(), TestCancelledContext(), TestHugeImageIsRefusedWithWarning(), TestRunawayDocumentHitsPageLimit(), ConvertString() (+7 more)
+Nodes (13): InternalError, pngHeader(), TestCancelledContext(), TestHugeImageIsRefusedWithWarning(), TestRunawayDocumentHitsPageLimit(), ConvertString(), checkPDF(), pdfText() (+5 more)
 
-### Community 10 - "Clip"
-Cohesion: 0.17
-Nodes (9): boxAreas(), pickArea(), Clip, PathStyle, pageClip(), PathItem, num(), op() (+1 more)
+### Community 10 - "proteus-converter"
+Cohesion: 0.29
+Nodes (5): WithFS(), Accuracy gate, CSS support, proteus-converter, Security
 
 ### Community 11 - "Format"
-Cohesion: 0.16
-Nodes (10): extOf(), Format, normalizeExt(), Registry, NewRegistry(), Default(), FormatForPath(), Lookup() (+2 more)
+Cohesion: 0.27
+Nodes (6): extOf(), Format, normalizeExt(), Registry, NewRegistry(), Default()
 
 ### Community 12 - "markdown.go"
-Cohesion: 0.11
-Nodes (7): InternalError, addClass(), markTaskLists(), New(), Theme(), main(), Converter
+Cohesion: 0.19
+Nodes (3): New(), Theme(), main()
 
-### Community 13 - ".element"
-Cohesion: 0.25
-Nodes (10): paint, parser, state, attr(), defaultState(), FromNode(), isAncestor(), length() (+2 more)
+### Community 13 - "svg.go"
+Cohesion: 0.06
+Nodes (43): Image, PathStyle, pathExtent(), PathItem, decodeImage(), num(), op(), pathOps() (+35 more)
 
 ### Community 14 - "pixdiff/main.go"
-Cohesion: 0.23
+Cohesion: 0.28
 Nodes (7): check(), compare(), compareNear(), inked(), inkMask(), main(), raster()
 
 ### Community 15 - "chromium.cjs"
@@ -174,68 +177,68 @@ Nodes (3): { chromium }, path, { pathToFileURL }
 Cohesion: 0.50
 Nodes (3): Lists, Proteus sample, Table
 
-### Community 19 - "layouter"
-Cohesion: 0.25
-Nodes (6): isBFC(), blockResult, contentsResult, isForcedBreak(), margins, distributePercent()
+### Community 19 - ".layoutBlockInner"
+Cohesion: 0.14
+Nodes (5): contentsResult, isForcedBreak(), floatBox, floatCtx, margins
 
 ### Community 20 - ".layoutAtomic"
-Cohesion: 0.14
-Nodes (13): absPart(), clampWidth(), edges, resolveAlign(), resolveFlexible(), flexItem, flexLine, alignOffset() (+5 more)
+Cohesion: 0.11
+Nodes (14): absBox, absPart(), blockResult, translateItems(), resolveAlign(), resolveFlexible(), flexItem, flexLine (+6 more)
 
-### Community 21 - ".absItems"
-Cohesion: 0.27
-Nodes (4): absBox, translateItems(), groupItem, posCtx
+### Community 21 - "Convert"
+Cohesion: 0.33
+Nodes (6): Convert(), ConvertFile(), FormatForPath(), Lookup(), Register(), TestRegistry()
 
 ### Community 22 - "Render"
-Cohesion: 0.22
-Nodes (11): ConverterFunc, Recover(), TestRecoverTurnsPanicIntoError(), newImageLoader(), Input, mergeMeta(), Render(), Convert() (+3 more)
+Cohesion: 0.20
+Nodes (11): ConverterFunc, Recover(), ResolveURL(), TestDecodeWOFF(), DecodeWOFF(), IsWOFF(), TestRecoverTurnsPanicIntoError(), parsedSheet (+3 more)
 
 ### Community 23 - "ConvertBytes"
-Cohesion: 0.18
-Nodes (16): BenchmarkSystemScan(), fuzzConvert(), FuzzConvertCSS(), FuzzConvertHTML(), FuzzConvertMarkdown(), fuzzSeeds(), BenchmarkConvert(), convertFixture() (+8 more)
+Cohesion: 0.22
+Nodes (15): fuzzConvert(), FuzzConvertCSS(), FuzzConvertHTML(), FuzzConvertMarkdown(), fuzzSeeds(), BenchmarkConvert(), convertFixture(), fixtures() (+7 more)
 
 ### Community 24 - "Box"
-Cohesion: 0.28
-Nodes (10): Box, allCollapsibleSpace(), anonymousBlock(), fixTable(), fixTree(), hasBlockChild(), nextInFlowIsInline(), normalizeBlockChildren() (+2 more)
+Cohesion: 0.19
+Nodes (13): isBFC(), textContent(), Box, allCollapsibleSpace(), anonymousBlock(), fixTable(), fixTree(), hasBlockChild() (+5 more)
 
-### Community 25 - "Seg"
-Cohesion: 0.24
-Nodes (10): arc(), ellipse(), ParsePath(), parsePath(), quad(), RoundRect(), roundRect(), scanner (+2 more)
+### Community 25 - "collectSheets"
+Cohesion: 0.25
+Nodes (11): Metadata, attr(), documentMetadata(), findBase(), mergeMeta(), textOf(), walk(), sourceSheet (+3 more)
 
-### Community 26 - ".placeFloat"
-Cohesion: 0.16
-Nodes (4): atomicBox, floatBox, floatCtx, ImageItem
-
-### Community 27 - "layouter"
-Cohesion: 0.18
-Nodes (3): tilePositions(), layouter, pendingMarker
+### Community 27 - ".emit"
+Cohesion: 0.13
+Nodes (12): Pt(), boxAreas(), cornerRadii(), normCDF(), pickArea(), tilePositions(), ImageItem, m3() (+4 more)
 
 ### Community 28 - ".layoutTable"
-Cohesion: 0.24
-Nodes (7): rowCell, columnPercents(), rowCells(), tableGrid(), tableSpacing(), tcell, trow
+Cohesion: 0.26
+Nodes (8): rowCell, columnPercents(), distributePercent(), rowCells(), tableGrid(), tableSpacing(), tcell, trow
 
-### Community 30 - "Config"
-Cohesion: 0.25
-Nodes (5): LoaderFunc, decodeDataURL(), defaultLoad(), DefaultLoader(), readLimited()
-
-### Community 31 - "Matrix"
-Cohesion: 0.25
-Nodes (7): parseTransform(), Item, Shape, Matrix, ScaleXY(), Translate(), Text
+### Community 31 - "styles.go"
+Cohesion: 0.33
+Nodes (6): PageSize, cached, cachingLoader, newCachingLoader(), pageRules(), pageSize()
 
 ### Community 32 - "Converter"
-Cohesion: 0.28
+Cohesion: 0.21
 Nodes (3): Converter, New(), Converter
 
 ### Community 33 - ".Paginate"
-Cohesion: 0.28
-Nodes (6): Page, pathExtent(), spanPages(), cloneItem(), copyItems(), Document
+Cohesion: 0.24
+Nodes (6): Page, pageClip(), spanPages(), cloneItem(), copyItems(), Document
 
-### Community 35 - "Image"
-Cohesion: 0.18
-Nodes (8): Image, imageLoader, decodeImage(), rasterize(), rawImage, Document, Parse(), TestParseShapes()
+### Community 34 - "proteus/main.go"
+Cohesion: 0.38
+Nodes (3): fail(), main(), parsePage()
+
+### Community 35 - "ResourceLoader"
+Cohesion: 0.21
+Nodes (9): LoaderFunc, Config, decodeDataURL(), defaultLoad(), DefaultLoader(), ResourceLoader, readLimited(), imageLoader (+1 more)
+
+### Community 36 - "collapseBorders"
+Cohesion: 0.47
+Nodes (5): cborder, collapseBorders(), resolve(), sideBorder(), toPx()
 
 ### Community 37 - "textdiff/main.go"
-Cohesion: 0.50
+Cohesion: 0.42
 Nodes (6): align(), check(), lcs(), main(), words(), word
 
 ### Community 39 - "Quarterly Engineering Report"
@@ -243,28 +246,28 @@ Cohesion: 0.29
 Nodes (6): Appendix, Code, Follow-ups, Metrics, Quarterly Engineering Report, Summary
 
 ### Community 42 - "Color"
-Cohesion: 0.15
-Nodes (13): clamp01(), colorArgs(), Color, hslToRGB(), parseAlpha(), parseColorFunc(), parseComponent(), colorAt() (+5 more)
+Cohesion: 0.22
+Nodes (10): clamp01(), colorArgs(), Color, hslToRGB(), parseAlpha(), parseColorFunc(), parseComponent(), Shadow (+2 more)
 
 ## Knowledge Gaps
 - **2 isolated node(s):** `FONTCONFIG_FILE`, `github.com/gsoultan/proteus-converter`
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 115 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **6 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 120 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **10 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Box` connect `Box` to `GPDF`, `frag`, `Image`, `testing.T`, `golang.org/x/net/html.Node`, `parser`, `Color`, `layouter`, `.layoutAtomic`, `.absItems`, `.placeFloat`, `layouter`, `.layoutTable`?**
-  _High betweenness centrality (0.129) - this node is a cross-community bridge._
+- **Why does `Box` connect `Box` to `GPDF`, `frag`, `collapseBorders`, `Style`, `golang.org/x/net/html.Node`, `parser`, `Decoration`, `Color`, `svg.go`, `.layoutBlockInner`, `.layoutAtomic`, `.emit`, `.layoutTable`?**
+  _High betweenness centrality (0.124) - this node is a cross-community bridge._
 - **What connects `FONTCONFIG_FILE`, `github.com/gsoultan/proteus-converter` to the rest of the system?**
   _2 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `GPDF` be split into smaller, more focused modules?**
+  _Cohesion score 0.09807330146313196 - nodes in this community are weakly interconnected._
+- **Why does `Style` connect `Style` to `GPDF`, `frag`, `ParseLength`, `collapseBorders`, `Decoration`, `golang.org/x/net/html.Node`, `Color`, `svg.go`, `.layoutBlockInner`, `.layoutAtomic`, `Box`, `.emit`, `.layoutTable`, `styles.go`?**
+  _High betweenness centrality (0.102) - this node is a cross-community bridge._
 - **Should `options.go` be split into smaller, more focused modules?**
-  _Cohesion score 0.07372549019607844 - nodes in this community are weakly interconnected._
-- **Why does `Style` connect `frag` to `GPDF`, `ParseLength`, `testing.T`, `golang.org/x/net/html.Node`, `Color`, `Clip`, `layouter`, `.layoutAtomic`, `Box`, `layouter`, `.layoutTable`?**
-  _High betweenness centrality (0.089) - this node is a cross-community bridge._
+  _Cohesion score 0.12258064516129032 - nodes in this community are weakly interconnected._
+- **Why does `GPDF` connect `GPDF` to `Converter`, `options.go`, `Resolver`, `Style`, `parser`, `Color`, `svg.go`, `Box`, `collectSheets`, `rgb`?**
+  _High betweenness centrality (0.065) - this node is a cross-community bridge._
 - **Should `frag` be split into smaller, more focused modules?**
-  _Cohesion score 0.07450980392156863 - nodes in this community are weakly interconnected._
-- **Why does `GPDF` connect `GPDF` to `Converter`, `options.go`, `frag`, `Resolver`, `Image`, `parser`, `Color`, `Clip`, `markdown.go`, `Render`, `Box`?**
-  _High betweenness centrality (0.067) - this node is a cross-community bridge._
-- **Should `Resolver` be split into smaller, more focused modules?**
-  _Cohesion score 0.06734006734006734 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.10685249709639953 - nodes in this community are weakly interconnected._
