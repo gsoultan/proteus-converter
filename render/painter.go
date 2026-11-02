@@ -8,6 +8,7 @@ package render
 import (
 	"io"
 
+	"github.com/gsoultan/proteus-converter/core"
 	"github.com/gsoultan/proteus-converter/css"
 	"github.com/gsoultan/proteus-converter/fonts"
 	"github.com/gsoultan/proteus-converter/layout"
@@ -27,6 +28,12 @@ type Painter interface {
 	Image(x, y, w, h float64, img *layout.Image, clip layout.Clip)
 	// Path fills and/or strokes a path given in user units; m maps them to page coordinates.
 	Path(m svg.Matrix, segs []svg.Seg, style layout.PathStyle, clip layout.Clip)
+	// StampText draws translucent text rotated angle degrees counter-clockwise
+	// about its baseline origin, for watermarks.
+	StampText(x, baseline float64, text string, face *fonts.Face, size float64, c css.Color, angle, opacity float64)
+	// StampImage draws a translucent image rotated angle degrees
+	// counter-clockwise about its centre, for watermarks.
+	StampImage(x, y, w, h float64, img *layout.Image, angle, opacity float64)
 	LinkURL(x, y, w, h float64, url string)
 	LinkDest(x, y, w, h float64, dest string)
 	NamedDest(name string, y float64)
@@ -41,11 +48,12 @@ type Document struct {
 	ContentW, ContentH    float64    // page area; zero means the whole page
 	Background            *css.Color // canvas background, painted over the page area like Chromium
 	Pages                 []*layout.Page
+	Watermark             *Stamp // optional stamp on the selected pages
 }
 
 // Paint draws every page of d with p and writes the result to w.
 func Paint(d *Document, p Painter, w io.Writer) error {
-	for _, pg := range d.Pages {
+	for i, pg := range d.Pages {
 		p.BeginPage(d.PageWidth, d.PageHeight)
 		if d.Background != nil {
 			// Chromium leaves the @page margins blank: the canvas
@@ -55,6 +63,10 @@ func Paint(d *Document, p Painter, w io.Writer) error {
 			} else {
 				p.FillRect(0, 0, d.PageWidth, d.PageHeight, 0, *d.Background)
 			}
+		}
+		stamp := d.Watermark != nil && d.Watermark.applies(i)
+		if stamp && d.Watermark.Layer == core.WatermarkBehind {
+			d.Watermark.paint(p, d.PageWidth, d.PageHeight)
 		}
 		ox, oy := d.MarginLeft, d.MarginTop
 		for _, it := range pg.Items {
@@ -89,6 +101,9 @@ func Paint(d *Document, p Painter, w io.Writer) error {
 			case *layout.BookmarkItem:
 				p.Bookmark(v.Title, v.Level, oy+v.Y)
 			}
+		}
+		if stamp && d.Watermark.Layer == core.WatermarkOver {
+			d.Watermark.paint(p, d.PageWidth, d.PageHeight)
 		}
 	}
 	return p.Finish(w)
