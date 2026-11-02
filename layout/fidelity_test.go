@@ -3,6 +3,7 @@
 package layout_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/gsoultan/proteus-converter/layout"
@@ -71,5 +72,51 @@ func TestBoxShadowAndOutline(t *testing.T) {
 	}
 	if !found {
 		t.Error("no outline painted above the box")
+	}
+}
+
+// Blink repeats a table's footer group after the last row on every page the
+// table breaks across, and body rows leave room for it.
+func TestTableFooterRepeatsOnEveryPage(t *testing.T) {
+	var rows strings.Builder
+	for i := 0; i < 60; i++ {
+		rows.WriteString("<tr><td>row</td></tr>")
+	}
+	pages := pagesHTML(t, reset+`<style>td{height:30px;padding:0}</style><table>
+		<thead><tr><td>HEAD</td></tr></thead><tfoot><tr><td>FOOT</td></tr></tfoot><tbody>`+rows.String()+`</tbody></table>`)
+	if len(pages) < 3 {
+		t.Fatalf("table took %d pages, want at least 3", len(pages))
+	}
+	for i, items := range pages {
+		foot := text(t, items, "FOOT")
+		for _, it := range items {
+			if v, ok := it.(*layout.TextItem); ok && v.Text == "row" && v.Baseline > foot.Baseline {
+				t.Errorf("page %d: a body row is below the repeated footer", i+1)
+				break
+			}
+		}
+		if foot.Baseline > pageH {
+			t.Errorf("page %d: footer baseline %.1f is off the page", i+1, foot.Baseline)
+		}
+	}
+}
+
+// Blink floors the half-leading above the text to whole px
+// (FontHeight::AddLeading), so 11px text with line-height 1.4 (15.4px) gets
+// 1px above the ascent, not 1.7px.
+func TestHalfLeadingAboveTextIsFloored(t *testing.T) {
+	items := layoutHTML(t, `<style>body{margin:0;font:11px "Liberation Sans";line-height:1.4}</style><div>Hx</div>`)
+	near(t, "baseline", text(t, items, "Hx").Baseline, (1+10)*0.75) // ascent 0.905 x 11px rounds to 10px
+}
+
+// Rotated SVG text (axis labels) keeps its rotation instead of being dropped.
+func TestSVGRotatedTextAndInheritedFont(t *testing.T) {
+	items := layoutHTML(t, reset+`<style>svg text{font-size:10px}</style><div style="font-family:serif">
+		<svg width="100" height="100"><text transform="rotate(-90 20 50)" x="20" y="50">axis</text></svg></div>`)
+	v := text(t, items, "axis")
+	near(t, "rotation", v.Rotate, -90)
+	near(t, "size from the document style sheet", v.Size, 10*0.75)
+	if !strings.Contains(strings.ToLower(v.Face.Family), "serif") {
+		t.Errorf("SVG text font %q, want the inherited serif family", v.Face.Family)
 	}
 }

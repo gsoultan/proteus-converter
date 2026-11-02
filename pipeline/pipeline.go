@@ -89,10 +89,15 @@ func Render(ctx context.Context, in Input, cfg *core.Config, w io.Writer) (err e
 	}
 	// Chromium lays the page area out on whole CSS pixels: the page area
 	// starts at the margins rounded to the nearest px and its size is
-	// rounded up to whole px (measured against Chromium print output).
+	// rounded up to whole px (measured against Chromium print output). The
+	// size is computed in Blink LayoutUnits (1/64 px): the page size rounds up
+	// and the margins round down, so 12mm margins on A4 give 704px, not 703.
 	px := func(v float64) float64 { return v / 0.75 }
-	cw := math.Ceil(px(pageSize.Width-marginsBox.Left-marginsBox.Right)-1e-6) * 0.75
-	ch := math.Ceil(px(pageSize.Height-marginsBox.Top-marginsBox.Bottom)-1e-6) * 0.75
+	lu := func(v float64, round func(float64) float64) float64 { return round(px(v)*64-1e-6) / 64 }
+	ceilLU := func(v float64) float64 { return lu(v, math.Ceil) }
+	floorLU := func(v float64) float64 { return math.Floor(px(v)*64+1e-6) / 64 }
+	cw := math.Ceil(ceilLU(pageSize.Width)-floorLU(marginsBox.Left)-floorLU(marginsBox.Right)-1e-9) * 0.75
+	ch := math.Ceil(ceilLU(pageSize.Height)-floorLU(marginsBox.Top)-floorLU(marginsBox.Bottom)-1e-9) * 0.75
 	marginsBox.Top = math.Round(px(marginsBox.Top)) * 0.75
 	marginsBox.Left = math.Round(px(marginsBox.Left)) * 0.75
 	if cw <= 10 || ch <= 10 {

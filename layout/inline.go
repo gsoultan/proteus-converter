@@ -169,9 +169,9 @@ func (lb *lineBox) trimmed() []*frag {
 // measureLine computes the vertical metrics of a line box.
 func (l *layouter) measureLine(lb *lineBox, block *css.Style) {
 	sm := l.e.styleMetrics(block)
-	half := (sm.lh - (sm.ascent + sm.descent)) / 2
-	minTop := -sm.ascent - half
-	maxBot := sm.descent + half
+	above, below := leadingSplit(sm)
+	minTop := -sm.ascent - above
+	maxBot := sm.descent + below
 	var deferred []*atomicBox
 	for _, f := range lb.frags {
 		shift := 0.0
@@ -185,9 +185,9 @@ func (l *layouter) measureLine(lb *lineBox, block *css.Style) {
 				s = f.ctx.style
 			}
 			m := l.e.styleMetrics(s)
-			h := (m.lh - (m.ascent + m.descent)) / 2
-			minTop = math.Min(minTop, shift-m.ascent-h)
-			maxBot = math.Max(maxBot, shift+m.descent+h)
+			above, below := leadingSplit(m)
+			minTop = math.Min(minTop, shift-m.ascent-above)
+			maxBot = math.Max(maxBot, shift+m.descent+below)
 		case fAtomic:
 			a := f.atomic
 			switch a.valign {
@@ -231,6 +231,16 @@ func (l *layouter) measureLine(lb *lineBox, block *css.Style) {
 	}
 	lb.baseline = -minTop
 	lb.height = maxBot - minTop
+}
+
+// leadingSplit returns the leading added above the ascent and below the
+// descent. Blink (FontHeight::AddLeading) floors the half-leading above the
+// text to whole px and gives the rest to the descent side, so with
+// line-height 1.4 at 11px the baseline sits 0.7px higher than an even split.
+func leadingSplit(m styleMetrics) (above, below float64) {
+	lead := m.lh - (m.ascent + m.descent)
+	above = math.Floor(lead/2/0.75+1e-6) * 0.75
+	return above, lead - above
 }
 
 // textEdgeTop returns the top of an atomic box aligned with vertical-align

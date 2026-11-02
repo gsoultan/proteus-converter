@@ -89,11 +89,18 @@ func (l *layouter) emitSVG(d *svg.Document, x, y, w, h float64, clip Clip) {
 		}
 		t := it.Text
 		m := base.Mul(t.Transform)
+		// m = [a b c d e f]: a uniform scale plus rotation keeps the text
+		// shape; skews and uneven scales are not supported.
+		sx, sy := math.Hypot(m[0], m[1]), math.Hypot(m[2], m[3])
+		rot := 0.0
 		if math.Abs(m[1]) > 1e-6 || math.Abs(m[2]) > 1e-6 {
-			l.e.warnOnce("layout: rotated or skewed SVG text is not supported")
-			continue
+			if math.Abs(sx-sy) > 1e-3*sx || math.Abs(m[0]*m[2]+m[1]*m[3]) > 1e-3*sx*sy {
+				l.e.warnOnce("layout: skewed SVG text is not supported")
+				continue
+			}
+			rot = math.Atan2(m[1], m[0]) * 180 / math.Pi
 		}
-		size := t.FontSize * math.Abs(m[3])
+		size := t.FontSize * sy
 		if size <= 0 {
 			continue
 		}
@@ -104,15 +111,23 @@ func (l *layouter) emitSVG(d *svg.Document, x, y, w, h float64, clip Clip) {
 			width += r.Face.Width(r.Text, size)
 		}
 		px, py := m.Apply(t.X, t.Y)
+		// advance along the rotated baseline
+		ux, uy := 1.0, 0.0
+		if rot != 0 {
+			ux, uy = m[0]/sx, m[1]/sx
+		}
+		shift := 0.0
 		switch t.Anchor {
 		case "middle":
-			px -= width / 2
+			shift = width / 2
 		case "end":
-			px -= width
+			shift = width
 		}
+		px, py = px-ux*shift, py-uy*shift
 		for _, r := range runs {
-			l.emit(&TextItem{X: px, Baseline: py, Text: r.Text, Face: r.Face, Size: size, Color: t.Fill})
-			px += r.Face.Width(r.Text, size)
+			l.emit(&TextItem{X: px, Baseline: py, Text: r.Text, Face: r.Face, Size: size, Color: t.Fill, Rotate: rot})
+			w := r.Face.Width(r.Text, size)
+			px, py = px+ux*w, py+uy*w
 		}
 	}
 }

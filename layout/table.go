@@ -20,6 +20,7 @@ type trow struct {
 	group  *Box // the row group the row came from
 	cells  []*tcell
 	header bool
+	footer bool // tfoot row: repeated after the last row on every page the table breaks across
 }
 
 // tableGrid flattens row groups into rows (header, body, footer order) and
@@ -50,10 +51,10 @@ func tableGrid(t *Box) (rows []*trow, ncols int, captions []*Box) {
 		}
 	}
 	occupied := map[[2]int]bool{}
-	add := func(rs []*Box, header bool) {
+	add := func(rs []*Box, header, footer bool) {
 		for _, r := range rs {
 			ri := len(rows)
-			tr := &trow{box: r, group: groupOf[r], header: header}
+			tr := &trow{box: r, group: groupOf[r], header: header, footer: footer}
 			col := 0
 			for _, c := range r.Children {
 				for occupied[[2]int{ri, col}] {
@@ -72,9 +73,9 @@ func tableGrid(t *Box) (rows []*trow, ncols int, captions []*Box) {
 			rows = append(rows, tr)
 		}
 	}
-	add(head, true)
-	add(body, false)
-	add(foot, false)
+	add(head, true, false)
+	add(body, false, false)
+	add(foot, false, true)
 	if t.Style.BorderCollapse == "collapse" && !t.collapsed {
 		t.collapsed = true
 		collapseBorders(t, rows, ncols)
@@ -285,6 +286,20 @@ func (l *layouter) layoutTable(t *Box, x, y, cbw float64, pending margins, force
 		}
 		return h
 	}
+	// Like Blink, a table footer group is repeated right after the last row on each page the
+	// table breaks across, and body rows leave room for it.
+	var footer []Item
+	footerH := 0.0
+	for ri, r := range rows {
+		if r.footer {
+			items := l.layoutRow(r, colX, widths, hs, heights[ri], func(c *tcell) float64 { return spanH(c, ri) })
+			footer = append(footer, copyItems(items, 0, footerH)...)
+			footerH += heights[ri] + vs
+		}
+	}
+	if footerH > l.pageH()/4 {
+		footer, footerH = nil, 0 // too tall to repeat (Blink's limit is a quarter of the page)
+	}
 	for ri, r := range rows {
 		h := heights[ri]
 		adv := h
@@ -293,8 +308,15 @@ func (l *layouter) layoutTable(t *Box, x, y, cbw float64, pending margins, force
 			header = append(header, copyItems(items, 0, headerH)...)
 			headerH += adv + vs
 		}
-		ny := l.place(rowY, h)
+		need := h
+		if footer != nil && !r.header && !r.footer {
+			need += vs + footerH
+		}
+		ny := l.place(rowY, need)
 		if ny != rowY {
+			if !firstRow && footer != nil && !r.header && !r.footer {
+				l.items = append(l.items, copyItems(footer, 0, rowY)...)
+			}
 			if firstRow {
 				pushedFirst = true
 				tableTop = ny

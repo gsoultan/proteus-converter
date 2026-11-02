@@ -42,6 +42,9 @@ type TextItem struct {
 	// Synthetic styles the face lacks (drawn like Chromium: stroked outlines
 	// for bold, a shear for italic).
 	SynthBold, SynthItalic bool
+	// Rotate turns the text about (X, Baseline), in degrees clockwise on the
+	// page (rotated SVG text).
+	Rotate float64
 }
 
 // Clip is a rounded-rectangle clip region; a zero width means no clipping.
