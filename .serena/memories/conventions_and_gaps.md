@@ -33,7 +33,11 @@
   synthetic bold/italic, @font-face TrueType/OpenType-CFF/WOFF 1.0/WOFF2 (fonts/woff2.go, brotli
   via andybalholm/brotli, glyf/loca/hmtx transforms reversed), GPOS kerning (gpdf), table header
   and footer repeat on every page, SVG text rotation and inherited fonts/stylesheets.
-- Unsupported / approximated: quirks-mode UA margins (use <!DOCTYPE html>), grid-auto-flow column
+- XLSX gaps: text outside tables is dropped when the document has tables (warning counts
+  blocks); nested tables are flattened into the cell text (em space between cells, newline
+  between rows); gradients/background images, text alpha, diagonal borders, column-level
+  hidden only via visibility:collapse; WOFF/system font names are passed through as-is.
+- Unsupported / approximated (PDF): quirks-mode UA margins (use <!DOCTYPE html>), grid-auto-flow column
   and dense, radial/conic gradients, SVG gradients (average stop color, with a warning), SVG
   filters/masks/clipPath, overflow clipping of text, canvas/video, WOFF2 collections, contextual
   alternates (calt, e.g. JetBrains Mono "!=" ligatures), column-span: all, columns crossing a page

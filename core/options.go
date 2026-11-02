@@ -82,6 +82,10 @@ type Config struct {
 	Outline  bool // build PDF bookmarks from headings; on by default
 	Tagged   bool // mark the PDF as tagged
 
+	// Spreadsheet output (XLSX): store numeric-looking text as numbers,
+	// percentages, currency amounts and ISO dates as typed cells; on by default.
+	DetectNumbers bool
+
 	// Markdown-specific.
 	MarkdownCSS        string // replaces the built-in Markdown theme when non-empty
 	NoMarkdownDefaults bool   // skip the built-in Markdown theme entirely
@@ -103,6 +107,7 @@ func NewConfig(opts ...Option) *Config {
 		MediaType:       "print",
 		SystemFonts:     true,
 		Outline:         true,
+		DetectNumbers:   true,
 	}
 	for _, o := range opts {
 		if o != nil {
@@ -184,6 +189,11 @@ func WithOutline(enabled bool) Option { return func(c *Config) { c.Outline = ena
 
 // WithTagged marks the output as a tagged PDF.
 func WithTagged(enabled bool) Option { return func(c *Config) { c.Tagged = enabled } }
+
+// WithNumberDetection turns on or off the typing of numeric-looking cell text
+// (numbers, percentages, currency amounts, ISO dates) in spreadsheet output.
+// Off, every cell is text unless a data-type attribute says otherwise.
+func WithNumberDetection(on bool) Option { return func(c *Config) { c.DetectNumbers = on } }
 
 // WithMarkdownStylesheet replaces the built-in Markdown theme with css.
 func WithMarkdownStylesheet(css string) Option { return func(c *Config) { c.MarkdownCSS = css } }

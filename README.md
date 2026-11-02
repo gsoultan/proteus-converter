@@ -1,9 +1,9 @@
 # proteus-converter
 
-Pure-Go conversion of **HTML** and **Markdown** to **PDF**, built on
-[gpdf](https://github.com/gsoultan/gpdf). No browser, LibreOffice or cgo at
-runtime. Microsoft Word (DOCX) input is planned; the API is shaped so new
-formats plug in without changes for callers.
+Pure-Go conversion of **HTML** and **Markdown** to **PDF** (built on
+[gpdf](https://github.com/gsoultan/gpdf)) and to **Excel (XLSX)**. No browser,
+LibreOffice or cgo at runtime. Microsoft Word (DOCX) input is planned; the API
+is shaped so new formats plug in without changes for callers.
 
 ```go
 import proteus "github.com/gsoultan/proteus-converter"
@@ -21,16 +21,21 @@ pdf, err := proteus.ConvertBytes(ctx, proteus.FormatMarkdown, src,
 
 // Streams, for servers.
 err = proteus.Convert(ctx, proteus.FormatHTML, r.Body, w, proteus.WithBaseURL("https://example.com/"))
+
+// Other output formats: the output extension picks it for files, or name it.
+err = proteus.ConvertFile(ctx, "report.md", "report.xlsx")
+xlsx, err := proteus.ConvertBytesTo(ctx, proteus.FormatHTML, proteus.OutputXLSX, src)
 ```
 
-CLI: `go run ./cmd/proteus [-page A4|Letter[-landscape]] [-margin mm] [-css extra.css] [-http] in.html|in.md [out.pdf]`
+CLI: `go run ./cmd/proteus [-page A4|Letter[-landscape]] [-margin mm] [-css extra.css] [-http] in.html|in.md [out.pdf|out.xlsx]`
 
 ## Design
 
 | Pattern | Where | Why |
 | --- | --- | --- |
 | Strategy | `core.Converter` (`Format`, `Extensions`, `Convert`) | one implementation per input format; DOCX becomes another strategy |
-| Registry / factory | `core.Registry`, `proteus.Register`, `proteus.Lookup`, `FormatForPath` | pick a converter by format or file extension; callers can register their own |
+| Strategy (outputs) | `core.Parser` (input → `core.Document`) + `core.Writer` (`Output`, `Write`) | an input that parses to an HTML tree feeds every writer; XLSX is the first non-PDF writer, more plug in with `RegisterWriter` |
+| Registry / factory | `core.Registry`, `proteus.Register`, `proteus.Lookup`, `FormatForPath`, `RegisterWriter`, `OutputForPath` | pick a converter by format or file extension; callers can register their own |
 | Functional options | `core.Option` (`WithPageSize`, `WithStylesheet`, …) | defaults that work, settings that do not break when new ones are added |
 | Adapter | `render.Painter`, `render.GPDF` | layout never touches gpdf directly, so the PDF backend can change |
 | Pipeline | parse → cascade → box tree → layout → paginate → paint | each stage is a package with its own tests |
@@ -38,7 +43,49 @@ CLI: `go run ./cmd/proteus [-page A4|Letter[-landscape]] [-margin mm] [-css extr
 Packages: `core` (API types), `css` (parser, cascade, values), `fonts`
 (TrueType discovery and metrics), `layout` (box tree, block/inline/table
 layout, pagination), `render` (painter), `pipeline` (glue), `formats/html`,
-`formats/markdown`.
+`formats/markdown`, `formats/xlsx` (spreadsheet writer).
+
+## Excel output
+
+`formats/xlsx` writes a workbook straight from the styled document (cascade
+only, no page layout), with no third-party dependency:
+
+- Every top-level `<table>` becomes a worksheet named after its `<caption>`,
+  `data-sheet`, `aria-label`, `title` or `id`, else the heading before it,
+  else `Table N` (names are made unique and valid for Excel). A document
+  without tables becomes one `Document` sheet with a row per block of text.
+- Rows and cells map one to one; `rowspan`/`colspan` (including `rowspan=0`)
+  follow the HTML table model and become merged ranges. `<thead>` rows are
+  frozen and repeat on printed pages. `display:none` rows and cells are
+  skipped.
+- Text keeps CSS `white-space` rules, `<br>`, nested blocks (one line each),
+  list markers, `text-transform` and `::before`/`::after` content. Mixed
+  inline styles become rich-text runs; a uniformly styled cell gets that
+  font directly.
+- Computed CSS gives the font (generic families map to Arial, Times New
+  Roman, Courier New, …; browser-only names like `-apple-system` are
+  skipped), size, bold, italic, underline, strike and colour; the fill is the
+  table → column → row group → row → cell background stack composited over
+  white; borders map to thin/medium/thick/dashed/dotted/double with the
+  collapsing model resolved against row, row group and table borders;
+  `text-align` and `vertical-align` set the alignment, `padding-left` an
+  indent, and `<col>`/cell widths the column widths (else auto-fit).
+- Numeric-looking text is stored as a typed cell with a number format that
+  shows exactly what the document showed: `1,234.50`, `12.5%`, `$1,234.50`,
+  `5 €`, `Rp 1.500`, `(2,000)` (accounting negative), ISO dates and
+  date-times. Identifiers like `007` stay text, as do header cells. Authors
+  can force a type with `data-type="string|number|bool|date|formula"`,
+  `data-value` and `data-formula="=SUM(B2:B9)"`; `WithNumberDetection(false)`
+  (CLI `-no-numbers`) turns the detection off.
+- `<a href>` becomes a cell hyperlink; PNG, JPEG and GIF `<img>` are embedded
+  at their cell (sized by CSS width/height), SVG is reported as a warning.
+- Document metadata (`<title>`, author, keywords, language, or `WithMetadata`)
+  fills the workbook properties.
+
+Text outside tables in a document that has tables is not written (a warning
+counts the skipped blocks). Tests read the workbook back cell by cell and,
+when LibreOffice is installed, round-trip it through `soffice` to compare the
+displayed values, including an evaluated formula.
 
 ## CSS support
 

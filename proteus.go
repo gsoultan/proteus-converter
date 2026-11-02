@@ -24,6 +24,7 @@ import (
 	"github.com/gsoultan/proteus-converter/core"
 	htmlfmt "github.com/gsoultan/proteus-converter/formats/html"
 	mdfmt "github.com/gsoultan/proteus-converter/formats/markdown"
+	xlsxfmt "github.com/gsoultan/proteus-converter/formats/xlsx"
 )
 
 // Re-exported core types so callers only import this package.
@@ -31,6 +32,10 @@ type (
 	Converter      = core.Converter
 	ConverterFunc  = core.ConverterFunc
 	Format         = core.Format
+	OutputFormat   = core.OutputFormat
+	Writer         = core.Writer
+	Parser         = core.Parser
+	Document       = core.Document
 	Option         = core.Option
 	Config         = core.Config
 	Registry       = core.Registry
@@ -47,6 +52,12 @@ const (
 	FormatHTML     = core.FormatHTML
 	FormatMarkdown = core.FormatMarkdown
 	FormatDOCX     = core.FormatDOCX
+)
+
+// Output formats. PDF is the default; XLSX writes every table as a sheet.
+const (
+	OutputPDF  = core.OutputPDF
+	OutputXLSX = core.OutputXLSX
 )
 
 // Page sizes.
@@ -92,6 +103,7 @@ var (
 	WithOutline            = core.WithOutline
 	WithTagged             = core.WithTagged
 	WithMarkdownStylesheet = core.WithMarkdownStylesheet
+	WithNumberDetection    = core.WithNumberDetection
 	WithoutMarkdownTheme   = core.WithoutMarkdownTheme
 	WithWarningHandler     = core.WithWarningHandler
 )
@@ -110,6 +122,7 @@ var defaultRegistry = func() *core.Registry {
 	r := core.NewRegistry()
 	r.Register(htmlfmt.New())
 	r.Register(mdfmt.New())
+	r.RegisterWriter(xlsxfmt.New())
 	return r
 }()
 
@@ -119,8 +132,36 @@ func Default() *Registry { return defaultRegistry }
 // Register adds a converter to the default registry (e.g. a custom format).
 func Register(c Converter) { defaultRegistry.Register(c) }
 
+// RegisterWriter adds an output writer (a non-PDF output format) to the default registry.
+func RegisterWriter(w Writer) { defaultRegistry.RegisterWriter(w) }
+
 // Lookup returns the converter for a format from the default registry.
 func Lookup(f Format) (Converter, error) { return defaultRegistry.Lookup(f) }
+
+// LookupWriter returns the writer for an output format from the default registry.
+func LookupWriter(o OutputFormat) (Writer, error) { return defaultRegistry.LookupWriter(o) }
+
+// Outputs lists the output formats of the default registry (PDF first).
+func Outputs() []OutputFormat { return defaultRegistry.Outputs() }
+
+// OutputForPath detects the output format from a file name (.xlsx for
+// spreadsheets; anything else is PDF).
+func OutputForPath(path string) OutputFormat { return defaultRegistry.OutputForPath(path) }
+
+// ConvertTo converts a document of format f to output format o, which is
+// PDF or any registered writer's format.
+func ConvertTo(ctx context.Context, f Format, o OutputFormat, src io.Reader, dst io.Writer, opts ...Option) error {
+	return defaultRegistry.ConvertTo(ctx, f, o, src, dst, opts...)
+}
+
+// ConvertBytesTo converts an in-memory document to output format o.
+func ConvertBytesTo(ctx context.Context, f Format, o OutputFormat, src []byte, opts ...Option) ([]byte, error) {
+	var out bytes.Buffer
+	if err := ConvertTo(ctx, f, o, bytes.NewReader(src), &out, opts...); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
 
 // FormatForPath detects a format from a file name.
 func FormatForPath(path string) (Format, error) { return defaultRegistry.FormatForPath(path) }
@@ -148,9 +189,10 @@ func ConvertString(ctx context.Context, f Format, src string, opts ...Option) ([
 	return ConvertBytes(ctx, f, []byte(src), opts...)
 }
 
-// ConvertFile converts the file at in and writes the PDF to out. The format is
-// detected from the input extension and relative resources resolve against
-// the input's directory unless WithBaseURL is given.
+// ConvertFile converts the file at in and writes the result to out. The input
+// format is detected from the input extension and the output format from the
+// output extension (.xlsx for a spreadsheet, else PDF); relative resources
+// resolve against the input's directory unless WithBaseURL is given.
 func ConvertFile(ctx context.Context, in, out string, opts ...Option) error {
 	f, err := FormatForPath(in)
 	if err != nil {
@@ -166,12 +208,13 @@ func ConvertFile(ctx context.Context, in, out string, opts ...Option) error {
 		return err
 	}
 	opts = append([]Option{WithBaseURL(filepath.Dir(abs) + string(filepath.Separator))}, opts...)
-	tmp, err := os.CreateTemp(filepath.Dir(out), "."+strings.TrimSuffix(filepath.Base(out), filepath.Ext(out))+"-*.pdf")
+	o := OutputForPath(out)
+	tmp, err := os.CreateTemp(filepath.Dir(out), "."+strings.TrimSuffix(filepath.Base(out), filepath.Ext(out))+"-*."+string(o))
 	if err != nil {
 		return err
 	}
 	defer os.Remove(tmp.Name())
-	if err := Convert(ctx, f, src, tmp, opts...); err != nil {
+	if err := ConvertTo(ctx, f, o, src, tmp, opts...); err != nil {
 		tmp.Close()
 		return err
 	}
