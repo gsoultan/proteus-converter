@@ -43,8 +43,9 @@ type Box struct {
 	BgImage *Image // background-image
 	Alt     string
 
-	Marker *Box   // list-item marker content (inline box)
-	Symbol string // "disc", "circle" or "square" for markers painted as shapes
+	Marker    *Box       // list-item marker content (inline box)
+	FirstLine *css.Style // ::first-line style of a block container
+	Symbol    string     // "disc", "circle" or "square" for markers painted as shapes
 
 	Href     string // links
 	ID       string // fragment target

@@ -222,6 +222,9 @@ func (bd *Builder) element(n *html.Node, s *css.Style, parentDecos []Decoration)
 	if es != nil && es.FirstLetter != nil {
 		applyFirstLetter(b, es.FirstLetter)
 	}
+	if es != nil {
+		b.FirstLine = es.FirstLine
+	}
 	if pushedList {
 		bd.lists = bd.lists[:len(bd.lists)-1]
 	}
@@ -279,7 +282,8 @@ func (bd *Builder) image(n *html.Node, s *css.Style, decos []Decoration) *Box {
 
 // inlineSVG builds a replaced box for an inline <svg> element.
 func (bd *Builder) inlineSVG(n *html.Node, s *css.Style, decos []Decoration) *Box {
-	d := svg.FromNode(n, s.Color)
+	d := svg.FromNodeInherit(n, svg.Inherited{Color: s.Color, FontFamily: s.FontFamily, FontSize: s.FontSize / 0.75,
+		FontWeight: s.FontWeight, Italic: s.FontStyle != "normal"})
 	for _, w := range d.Warnings {
 		bd.warn("layout: " + w)
 	}

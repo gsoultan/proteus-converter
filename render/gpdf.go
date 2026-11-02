@@ -129,6 +129,11 @@ func (g *GPDF) Text(x, baseline float64, text string, face *fonts.Face, size flo
 		g.b.RegisterFont(ttf)
 		g.registered[name] = true
 	}
+	if synth.Rotate != 0 {
+		// PDF angles are counter-clockwise with y up
+		g.b.DrawTextRotated(text, x, g.pageH-baseline, name, size, rgb(c), -synth.Rotate)
+		return
+	}
 	if synth.Bold || synth.Italic {
 		g.b.DrawTextSynthetic(text, x, g.pageH-baseline, name, size, rgb(c), letterSpacing, 0, synth.Bold, synth.Italic)
 		return

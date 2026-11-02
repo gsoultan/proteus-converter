@@ -280,9 +280,8 @@ func loadFontFaces(ctx context.Context, sheets []parsedSheet, loader core.Resour
 						format = strings.ToLower(css.Unquote(args))
 					}
 				}
-				lu := strings.ToLower(u)
-				if format == "woff2" || strings.HasSuffix(lu, ".woff2") {
-					continue
+				if format == "embedded-opentype" || format == "svg" {
+					continue // formats Chromium does not load either
 				}
 				data, err := loader.Load(ctx, core.ResolveURL(ps.base, u))
 				if err != nil {
@@ -290,9 +289,11 @@ func loadFontFaces(ctx context.Context, sheets []parsedSheet, loader core.Resour
 					continue
 				}
 				if fonts.IsWOFF2(data) {
-					continue
-				}
-				if fonts.IsWOFF(data) {
+					if data, err = fonts.DecodeWOFF2(data); err != nil {
+						warn("fonts: @font-face " + family + ": " + err.Error())
+						continue
+					}
+				} else if fonts.IsWOFF(data) {
 					if data, err = fonts.DecodeWOFF(data); err != nil {
 						warn("fonts: @font-face " + family + ": " + err.Error())
 						continue
@@ -306,7 +307,7 @@ func loadFontFaces(ctx context.Context, sheets []parsedSheet, loader core.Resour
 				break
 			}
 			if !loaded {
-				warn("fonts: @font-face " + family + ": no usable TrueType/OpenType/WOFF source (WOFF2 is not supported yet)")
+				warn("fonts: @font-face " + family + ": no usable TrueType/OpenType/WOFF/WOFF2 source")
 			}
 		}
 	}

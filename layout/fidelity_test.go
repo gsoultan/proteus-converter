@@ -3,6 +3,7 @@
 package layout_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/gsoultan/proteus-converter/layout"
@@ -71,5 +72,102 @@ func TestBoxShadowAndOutline(t *testing.T) {
 	}
 	if !found {
 		t.Error("no outline painted above the box")
+	}
+}
+
+// Blink repeats a table's footer group after the last row on every page the
+// table breaks across, and body rows leave room for it.
+func TestTableFooterRepeatsOnEveryPage(t *testing.T) {
+	var rows strings.Builder
+	for i := 0; i < 60; i++ {
+		rows.WriteString("<tr><td>row</td></tr>")
+	}
+	pages := pagesHTML(t, reset+`<style>td{height:30px;padding:0}</style><table>
+		<thead><tr><td>HEAD</td></tr></thead><tfoot><tr><td>FOOT</td></tr></tfoot><tbody>`+rows.String()+`</tbody></table>`)
+	if len(pages) < 3 {
+		t.Fatalf("table took %d pages, want at least 3", len(pages))
+	}
+	for i, items := range pages {
+		foot := text(t, items, "FOOT")
+		for _, it := range items {
+			if v, ok := it.(*layout.TextItem); ok && v.Text == "row" && v.Baseline > foot.Baseline {
+				t.Errorf("page %d: a body row is below the repeated footer", i+1)
+				break
+			}
+		}
+		if foot.Baseline > pageH {
+			t.Errorf("page %d: footer baseline %.1f is off the page", i+1, foot.Baseline)
+		}
+	}
+}
+
+// Blink floors the half-leading above the text to whole px
+// (FontHeight::AddLeading), so 11px text with line-height 1.4 (15.4px) gets
+// 1px above the ascent, not 1.7px.
+func TestHalfLeadingAboveTextIsFloored(t *testing.T) {
+	items := layoutHTML(t, `<style>body{margin:0;font:11px "Liberation Sans";line-height:1.4}</style><div>Hx</div>`)
+	near(t, "baseline", text(t, items, "Hx").Baseline, (1+10)*0.75) // ascent 0.905 x 11px rounds to 10px
+}
+
+// Rotated SVG text (axis labels) keeps its rotation instead of being dropped.
+func TestSVGRotatedTextAndInheritedFont(t *testing.T) {
+	items := layoutHTML(t, reset+`<style>svg text{font-size:10px}</style><div style="font-family:serif">
+		<svg width="100" height="100"><text transform="rotate(-90 20 50)" x="20" y="50">axis</text></svg></div>`)
+	v := text(t, items, "axis")
+	near(t, "rotation", v.Rotate, -90)
+	near(t, "size from the document style sheet", v.Size, 10*0.75)
+	if !strings.Contains(strings.ToLower(v.Face.Family), "serif") {
+		t.Errorf("SVG text font %q, want the inherited serif family", v.Face.Family)
+	}
+}
+
+// ::first-line restyles only the words on the first line box.
+func TestFirstLineStylesOnlyTheFirstLine(t *testing.T) {
+	items := layoutHTML(t, reset+`<style>p{margin:0;width:120px}p::first-line{color:#ff0000;font-weight:bold}</style>
+		<p>alpha beta gamma delta epsilon zeta eta theta iota kappa</p>`)
+	a, k := text(t, items, "alpha"), text(t, items, "kappa")
+	if a.Color.R != 1 || a.Face.Weight < 700 {
+		t.Errorf("first line word: color %+v weight %d, want red bold", a.Color, a.Face.Weight)
+	}
+	if k.Baseline <= a.Baseline || k.Color.R != 0 || k.Face.Weight >= 700 {
+		t.Errorf("later line word: baseline %.1f color %+v weight %d, want normal style below", k.Baseline, k.Color, k.Face.Weight)
+	}
+}
+
+// column-count balances the content over equal columns separated by the
+// gap, with the column rule in the middle of the gap.
+func TestColumnsBalanceAndRule(t *testing.T) {
+	var p strings.Builder
+	for i := 0; i < 12; i++ {
+		p.WriteString(`<div style="height:20px">line</div>`)
+	}
+	items := layoutHTML(t, reset+`<div style="width:320px;column-count:3;column-gap:10px;column-rule:2px solid #ff0000">`+
+		p.String()+`</div><div style="background:#00ff00;height:5px"></div>`)
+	xs := map[float64]int{}
+	for _, it := range items {
+		if v, ok := it.(*layout.TextItem); ok && v.Text == "line" {
+			xs[v.X]++
+		}
+	}
+	if len(xs) != 3 {
+		t.Fatalf("lines in %d columns, want 3: %v", len(xs), xs)
+	}
+	for x, n := range xs {
+		if n != 4 {
+			t.Errorf("column at x=%.1f holds %d lines, want 4", x, n)
+		}
+	}
+	near(t, "content after the columns", rect(t, items, 0, 255, 0).Y, 80*0.75)
+	rules := 0
+	for _, it := range items {
+		if l, ok := it.(*layout.LineItem); ok && l.Color.R == 1 {
+			rules++
+			if l.Y2-l.Y1 < 79*0.75 {
+				t.Errorf("rule height %.1f, want the column height", l.Y2-l.Y1)
+			}
+		}
+	}
+	if rules != 2 {
+		t.Errorf("%d column rules, want 2", rules)
 	}
 }

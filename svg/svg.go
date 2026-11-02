@@ -193,9 +193,33 @@ func Parse(data []byte) (*Document, error) {
 
 // FromNode builds a document from an <svg> element. color is the value of currentColor.
 func FromNode(root *html.Node, color css.Color) *Document {
+	return FromNodeInherit(root, Inherited{Color: color})
+}
+
+// Inherited holds the properties an inline <svg> inherits from the HTML
+// element around it; zero fields keep the SVG initial values.
+type Inherited struct {
+	Color      css.Color
+	FontFamily []string
+	FontSize   float64 // px
+	FontWeight int
+	Italic     bool
+}
+
+// FromNodeInherit is FromNode for an <svg> inside an HTML document: text
+// inherits the font of the surrounding element, and the document's <style>
+// sheets apply to the SVG elements as they do in a browser.
+func FromNodeInherit(root *html.Node, inh Inherited) *Document {
 	p := &parser{ids: map[string]*html.Node{}, warned: map[string]bool{}}
 	d := &Document{Align: "xMidYMid"}
 	p.doc = d
+	top := root
+	for top.Parent != nil {
+		top = top.Parent
+	}
+	if top != root {
+		p.collectStyles(top, root)
+	}
 	p.collect(root)
 	vw, vh := 300.0, 150.0
 	if vb, ok := attr(root, "viewBox"); ok {
@@ -232,7 +256,17 @@ func FromNode(root *html.Node, color css.Color) *Document {
 		}
 	}
 	p.vw, p.vh = vw, vh
-	st := defaultState(color)
+	st := defaultState(inh.Color)
+	if len(inh.FontFamily) > 0 {
+		st.fontFamily = inh.FontFamily
+	}
+	if inh.FontSize > 0 {
+		st.fontSize = inh.FontSize
+	}
+	if inh.FontWeight > 0 {
+		st.fontWeight = inh.FontWeight
+	}
+	st.italic = inh.Italic
 	p.children(root, st, Identity, 0)
 	return d
 }
@@ -302,28 +336,47 @@ func attr(n *html.Node, key string) (string, bool) {
 }
 
 // collect indexes ids and <style> sheets.
+// collectStyles adds the rules of the <style> elements of the HTML document
+// around the SVG (those inside skip is the SVG itself, collected later).
+func (p *parser) collectStyles(n, skip *html.Node) {
+	if n == skip {
+		return
+	}
+	if n.Type == html.ElementNode && n.Data == "style" {
+		p.addStyle(n)
+		return
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		p.collectStyles(c, skip)
+	}
+}
+
+func (p *parser) addStyle(n *html.Node) {
+	var b strings.Builder
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if c.Type == html.TextNode {
+			b.WriteString(c.Data)
+		}
+	}
+	ss := css.Parse(b.String(), nil)
+	for _, r := range ss.Rules {
+		for _, s := range css.SplitCommas(r.Selector) {
+			sel, err := cascadia.Parse(s)
+			if err != nil {
+				continue
+			}
+			p.rules = append(p.rules, svgRule{sel: sel, decls: r.Decls})
+		}
+	}
+}
+
 func (p *parser) collect(n *html.Node) {
 	if n.Type == html.ElementNode {
 		if id, ok := attr(n, "id"); ok {
 			p.ids[id] = n
 		}
 		if n.Data == "style" {
-			var b strings.Builder
-			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				if c.Type == html.TextNode {
-					b.WriteString(c.Data)
-				}
-			}
-			ss := css.Parse(b.String(), nil)
-			for _, r := range ss.Rules {
-				for _, s := range css.SplitCommas(r.Selector) {
-					sel, err := cascadia.Parse(s)
-					if err != nil {
-						continue
-					}
-					p.rules = append(p.rules, svgRule{sel: sel, decls: r.Decls})
-				}
-			}
+			p.addStyle(n)
 		}
 	}
 	for c := n.FirstChild; c != nil; c = c.NextSibling {

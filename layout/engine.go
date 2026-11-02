@@ -26,6 +26,7 @@ type Engine struct {
 	forcedW    map[*Box]float64          // border-box widths imposed on replaced flex and grid items
 	pctStyle   map[*Box]pctStyle         // resolved percentage heights
 	smallCaps  map[*css.Style]*css.Style // synthetic small-caps styles
+	firstLine  map[[2]*css.Style]*css.Style
 
 	fixedOK    bool     // position: fixed boxes repeat on every page
 	fixedBoxes []absBox // collected during layout
@@ -59,6 +60,7 @@ func (e *Engine) Layout(root *Box) []Item {
 	e.forcedW = map[*Box]float64{}
 	e.pctStyle = map[*Box]pctStyle{}
 	e.smallCaps = map[*css.Style]*css.Style{}
+	e.firstLine = map[[2]*css.Style]*css.Style{}
 	e.fixedBoxes, e.fixedItems = nil, nil
 	e.fixedOK = true
 	// percentages on the root resolve against the page area, as in Chromium print

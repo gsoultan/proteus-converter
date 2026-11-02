@@ -67,7 +67,7 @@ func Paint(d *Document, p Painter, w io.Writer) error {
 				p.Ellipse(ox+v.X, oy+v.Y, v.W, v.H, v.Color, v.Stroke)
 			case *layout.TextItem:
 				p.Text(ox+v.X, oy+v.Baseline, v.Text, v.Face, v.Size, v.Color, v.LetterSpacing,
-					Synthesis{Bold: v.SynthBold, Italic: v.SynthItalic})
+					Synthesis{Bold: v.SynthBold, Italic: v.SynthItalic, Rotate: v.Rotate})
 			case *layout.ImageItem:
 				clip := v.Clip
 				clip.X += ox
@@ -97,4 +97,6 @@ func Paint(d *Document, p Painter, w io.Writer) error {
 // Synthesis lists the styles to synthesise because the face lacks them.
 type Synthesis struct {
 	Bold, Italic bool
+	// Rotate turns the text about its origin, in degrees clockwise on the page.
+	Rotate float64
 }
