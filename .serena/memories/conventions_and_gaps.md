@@ -24,6 +24,9 @@
   still over backgrounds and images; an image stamp is a graphic run and keeps call order. SVG images
   refused with a warning. Tests: watermark_test.go inflates the content streams (pdfStreams) and
   checks /TXGS1 gs, /ca, /GS1 gs, page selection via pdftotext.
+- position: fixed boxes (layout/paginate.go) are copied whole onto every page (flattenItems), not
+  re-paginated, so a running header with a negative top or a footer below the content area (in the
+  @page margin) repeats on every page; proteus-server's compiled template layouts rely on it.
 - Remote fetching off by default (WithHTTP); local files on (WithLocalFiles, WithFS to confine).
 - Tests: go test ./... (proteus_test.go and leak_test.go use pdftotext when installed); css,
   fonts, svg and layout unit tests. layout/layout_test.go runs cascade + build + layout + paginate on small HTML and
