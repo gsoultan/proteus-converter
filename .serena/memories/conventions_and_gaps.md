@@ -15,6 +15,15 @@
   flate-compressing oversized font subsets. Font directory scan reads only header tables
   (parseSfntInfoAt over io.ReaderAt): 123 MB -> 0.6 MB allocated, ~3 ms. rasterize() reads
   NRGBA/Paletted/Gray pixels directly.
+- Watermarks: core.Watermark via WithWatermark (text or PNG/JPEG image, opacity, angle CCW, center or
+  tiled, behind or over, page range). pipeline/watermark.go resolves it into render.Stamp (fonts from
+  the conversion's resolver, bold 700, css.ParseColor); render.Paint stamps before (behind) or after
+  (over) the page items through Painter.StampText / StampImage. StampText uses gpdf
+  DrawTextWithStyle with Opacity (gpdf PR #7, constant-alpha text runs via TXGS<n> ExtGStates), so
+  the pinned gpdf must include it. gpdf layers graphics < text < images, so a text stamp "behind" is
+  still over backgrounds and images; an image stamp is a graphic run and keeps call order. SVG images
+  refused with a warning. Tests: watermark_test.go inflates the content streams (pdfStreams) and
+  checks /TXGS1 gs, /ca, /GS1 gs, page selection via pdftotext.
 - Remote fetching off by default (WithHTTP); local files on (WithLocalFiles, WithFS to confine).
 - Tests: go test ./... (proteus_test.go and leak_test.go use pdftotext when installed); css,
   fonts, svg and layout unit tests. layout/layout_test.go runs cascade + build + layout + paginate on small HTML and
@@ -28,7 +37,8 @@
 - Unsupported / approximated: quirks-mode UA margins (use <!DOCTYPE html>), grid-auto-flow column
   and dense, radial/conic gradients, SVG gradients (average stop color, with a warning), SVG
   filters/masks/clipPath, overflow clipping of text, canvas/video, WOFF/CFF,
-  hierarchical outlines, synthetic bold/italic, text alpha, @page :first, counters.
+  hierarchical outlines, synthetic bold/italic, text alpha for CSS colours (gpdf now supports
+  TextRun.Opacity, used by watermarks only so far), @page :first, counters.
   Mitered corners for differently coloured border sides, inset/outset shading and Blink's
   double-border line widths are approximated. Trailing blank space (e.g. a tall empty div at
   the end) does not create extra pages the way Chromium does.

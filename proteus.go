@@ -71,6 +71,20 @@ var (
 // bug in proteus; the panic is recovered and never reaches the caller.
 type InternalError = core.InternalError
 
+// Watermark is a translucent stamp for WithWatermark; see core.Watermark.
+type Watermark = core.Watermark
+
+// Watermark placement, layer and page selection (see core).
+const (
+	WatermarkCenter      = core.WatermarkCenter
+	WatermarkTiled       = core.WatermarkTiled
+	WatermarkBehind      = core.WatermarkBehind
+	WatermarkOver        = core.WatermarkOver
+	WatermarkAllPages    = core.WatermarkAllPages
+	WatermarkFirstPage   = core.WatermarkFirstPage
+	WatermarkAllButFirst = core.WatermarkAllButFirst
+)
+
 // Options (see core for documentation).
 var (
 	WithPageSize           = core.WithPageSize
@@ -91,6 +105,7 @@ var (
 	WithTitle              = core.WithTitle
 	WithOutline            = core.WithOutline
 	WithTagged             = core.WithTagged
+	WithWatermark          = core.WithWatermark
 	WithMarkdownStylesheet = core.WithMarkdownStylesheet
 	WithoutMarkdownTheme   = core.WithoutMarkdownTheme
 	WithWarningHandler     = core.WithWarningHandler

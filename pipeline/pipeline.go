@@ -149,6 +149,9 @@ func Render(ctx context.Context, in Input, cfg *core.Config, w io.Writer) (err e
 	if hasCanvas {
 		d.Background = &canvas
 	}
+	if cfg.Watermark != nil && !cfg.Watermark.Empty() {
+		d.Watermark = resolveWatermark(*cfg.Watermark, res, warn)
+	}
 	return render.Paint(d, p, w)
 }
 
