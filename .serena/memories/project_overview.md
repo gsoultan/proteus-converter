@@ -23,4 +23,5 @@ Accuracy tooling: accuracy/run.sh with internal/tools/pixdiff (raw and -near ink
 internal/tools/textdiff (word positions vs Chromium) and internal/tools/mdhtml (Markdown to the
 HTML Chromium renders). See accuracy_and_blink_quirks for thresholds and current numbers.
 
-Toolchain: go 1.26 (GOTOOLCHAIN=auto). Deps: gpdf, goldmark, x/net, cascadia.
+Toolchain: go 1.26 (GOTOOLCHAIN=auto). Deps: gpdf (pinned to a main commit that has
+DrawTextWithStyle / text opacity), goldmark, x/net, cascadia.

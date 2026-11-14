@@ -67,6 +67,31 @@ their average color), `grid-auto-flow: column`, WOFF fonts, `@page :first` and m
 numbering. Unsupported input produces a warning (see `WithWarningHandler`),
 never a failure.
 
+## Watermarks
+
+`WithWatermark` stamps a translucent mark on the output pages: text such as
+DRAFT, COPY, PAID or CONFIDENTIAL, or an image such as a faint logo. The mark
+is painted by the PDF backend, so it never changes the document's layout and
+works for HTML and Markdown alike.
+
+```go
+pdf, err := proteus.ConvertBytes(ctx, proteus.FormatHTML, src,
+	proteus.WithWatermark(proteus.Watermark{
+		Text:      "DRAFT",                 // or Image: pngOrJPEGBytes (ImageWidth in pt)
+		FontSize:  72,                      // pt; FontFamily is a CSS list, bold sans-serif by default
+		Color:     "#c92a2a",               // any CSS colour
+		Opacity:   0.15,                    // 0..1
+		Angle:     30,                      // degrees counter-clockwise; set AngleSet for 0
+		Placement: proteus.WatermarkTiled,  // or WatermarkCenter
+		Layer:     proteus.WatermarkBehind, // under the text; WatermarkOver paints on top
+		Pages:     proteus.WatermarkAllPages, // WatermarkFirstPage, WatermarkAllButFirst
+	}))
+```
+
+A text mark behind the document sits under its text but over page
+backgrounds and images; a mark over the document covers everything with the
+given opacity. SVG watermark images are not supported yet.
+
 ## Security
 
 Remote fetching is off by default; enable it with `WithHTTP(true)` or supply a

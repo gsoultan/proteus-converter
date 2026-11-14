@@ -190,6 +190,32 @@ func (g *GPDF) Image(x, y, w, h float64, img *layout.Image, clip layout.Clip) {
 	g.addOps(ops, nil)
 }
 
+// StampImage implements Painter. The image is a graphic run in call order,
+// so a stamp before the page content lies under it and one after lies over.
+func (g *GPDF) StampImage(x, y, w, h float64, img *layout.Image, angle, opacity float64) {
+	if img == nil || img.SVG != nil || w <= 0 || h <= 0 || opacity <= 0 {
+		return
+	}
+	var ops []content.Op
+	var gs map[model.Name]model.Dict
+	if opacity < 1 {
+		name, d := g.extGState(opacity, opacity)
+		gs = map[model.Name]model.Dict{name: d}
+		ops = append(ops, content.Op{Name: "gs", Args: []model.Object{name}})
+	}
+	// Rotate about the centre of the image box, in PDF coordinates (y up).
+	cx, cy := x+w/2, g.pageH-(y+h/2)
+	rad := angle * math.Pi / 180
+	sin, cos := math.Sin(rad), math.Cos(rad)
+	ops = append(ops, op("cm", cos, sin, -sin, cos, cx, cy))
+	name, ok := g.xobject(img)
+	if !ok {
+		return
+	}
+	ops = append(ops, op("cm", w, 0, 0, h, -w/2, -h/2), content.Op{Name: "Do", Args: []model.Object{model.Name(name)}})
+	g.addOps(ops, gs)
+}
+
 // xobject registers img on the current page and returns its XObject name.
 func (g *GPDF) xobject(img *layout.Image) (string, bool) {
 	if name, ok := g.xobjects[img]; ok {

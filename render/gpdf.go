@@ -119,15 +119,9 @@ func (g *GPDF) Text(x, baseline float64, text string, face *fonts.Face, size flo
 	if text == "" || c.A <= 0 {
 		return
 	}
-	name := face.PDFName()
-	if !face.IsStandard() && !g.registered[name] {
-		ttf, err := face.TrueType()
-		if err != nil || ttf == nil {
-			g.warnf("render: font %s unusable: %v", face.Family, err)
-			return
-		}
-		g.b.RegisterFont(ttf)
-		g.registered[name] = true
+	name, ok := g.font(face)
+	if !ok {
+		return
 	}
 	if synth.Rotate != 0 {
 		// PDF angles are counter-clockwise with y up
@@ -139,6 +133,38 @@ func (g *GPDF) Text(x, baseline float64, text string, face *fonts.Face, size flo
 		return
 	}
 	g.b.DrawTextWithSpacing(text, x, g.pageH-baseline, name, size, rgb(c), letterSpacing, 0)
+}
+
+// font registers face with gpdf once and returns its PDF name.
+func (g *GPDF) font(face *fonts.Face) (string, bool) {
+	name := face.PDFName()
+	if !face.IsStandard() && !g.registered[name] {
+		ttf, err := face.TrueType()
+		if err != nil || ttf == nil {
+			g.warnf("render: font %s unusable: %v", face.Family, err)
+			return "", false
+		}
+		g.b.RegisterFont(ttf)
+		g.registered[name] = true
+	}
+	return name, true
+}
+
+// StampText implements Painter. Text runs paint above all graphics in
+// gpdf's layered order, so a stamp called before the page content sits
+// under the document's text and over its backgrounds and images.
+func (g *GPDF) StampText(x, baseline float64, text string, face *fonts.Face, size float64, c css.Color, angle, opacity float64) {
+	if text == "" || c.A <= 0 || opacity <= 0 {
+		return
+	}
+	name, ok := g.font(face)
+	if !ok {
+		return
+	}
+	a := min(opacity*c.A, 1)
+	g.b.DrawTextWithStyle(g.page, text, x, g.pageH-baseline, doc.TextStyle{
+		FontName: name, FontSize: size, Color: rgb(c), Rotation: angle, Opacity: a,
+	})
 }
 
 // LinkURL implements Painter.

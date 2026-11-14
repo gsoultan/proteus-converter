@@ -82,6 +82,8 @@ type Config struct {
 	Outline  bool // build PDF bookmarks from headings; on by default
 	Tagged   bool // mark the PDF as tagged
 
+	Watermark *Watermark // translucent stamp on the output pages; nil for none
+
 	// Markdown-specific.
 	MarkdownCSS        string // replaces the built-in Markdown theme when non-empty
 	NoMarkdownDefaults bool   // skip the built-in Markdown theme entirely
