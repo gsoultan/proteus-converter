@@ -7,159 +7,27 @@ import (
 	"math"
 	"strings"
 
+	"github.com/gsoultan/gexcel/style"
 	"github.com/gsoultan/proteus-converter/css"
 )
 
-// font is a cell or run font in spreadsheet terms.
-type font struct {
-	name      string
-	sizePt    float64
-	bold      bool
-	italic    bool
-	underline bool
-	strike    bool
-	color     string // ARGB hex, "" for automatic
-}
+// The spreadsheet style vocabulary is gexcel's: style.Font, style.Fill,
+// style.Border and style.Alignment, combined into a style.Style per cell.
+// gexcel deduplicates them into the workbook's style tables on save.
 
-type fill struct {
-	color string // ARGB hex; "" means no fill
-}
+// defFontW is the maximum digit width in pixels of the default font
+// (Calibri 11), used to convert pixel widths to column width units.
+const defFontW = 7.0
 
-type borderSide struct {
-	style string // thin, medium, thick, dashed, dotted, double, hair; "" none
-	color string
-}
+type font = style.Font
 
-type border struct {
-	left, right, top, bottom borderSide
-}
-
-type alignment struct {
-	horizontal string // "", left, center, right, justify
-	vertical   string // "", top, center, bottom
-	wrap       bool
-	indent     int
-}
-
-// xf is a cell format: indexes into the style tables plus alignment.
-type xf struct {
-	fontID, fillID, borderID, numFmtID int
-	align                              alignment
-}
-
-// styleTable deduplicates fonts, fills, borders, number formats and cell
-// formats, producing the indexes used in sheet XML.
-type styleTable struct {
-	fonts    []font
-	fills    []fill
-	borders  []border
-	numFmts  []string // custom formats; id = 164 + index
-	xfs      []xf
-	fontIdx  map[string]int
-	fillIdx  map[string]int
-	bordIdx  map[string]int
-	fmtIdx   map[string]int
-	xfIdx    map[string]int
-	defFont  font
-	defFontW float64 // max digit width in px of the default font, for column widths
-}
-
-// Built-in number format ids.
-const (
-	fmtGeneral = 0
-	fmtDate    = 14 // m/d/yyyy; replaced by a custom yyyy-mm-dd
-)
-
-func newStyleTable(def font) *styleTable {
-	t := &styleTable{fontIdx: map[string]int{}, fillIdx: map[string]int{}, bordIdx: map[string]int{},
-		fmtIdx: map[string]int{}, xfIdx: map[string]int{}, defFont: def, defFontW: 7}
-	t.fontID(def)
-	// Excel requires fill 0 = none and fill 1 = gray125.
-	t.fills = append(t.fills, fill{}, fill{color: "gray125"})
-	t.fillIdx[""] = 0
-	t.borderID(border{})
-	t.xfID(xf{})
-	return t
-}
-
-func (f font) key() string {
-	return fmt.Sprintf("%s|%g|%t|%t|%t|%t|%s", f.name, f.sizePt, f.bold, f.italic, f.underline, f.strike, f.color)
-}
-
-func (t *styleTable) fontID(f font) int {
-	k := f.key()
-	if id, ok := t.fontIdx[k]; ok {
-		return id
+// numFmtCode normalises a number format: the empty string and "General" both
+// mean the general format.
+func numFmtCode(code string) string {
+	if code == "General" {
+		return ""
 	}
-	t.fonts = append(t.fonts, f)
-	t.fontIdx[k] = len(t.fonts) - 1
-	return len(t.fonts) - 1
-}
-
-func (t *styleTable) fillID(f fill) int {
-	if id, ok := t.fillIdx[f.color]; ok {
-		return id
-	}
-	t.fills = append(t.fills, f)
-	t.fillIdx[f.color] = len(t.fills) - 1
-	return len(t.fills) - 1
-}
-
-func (b border) key() string {
-	s := func(x borderSide) string { return x.style + "/" + x.color }
-	return s(b.left) + "|" + s(b.right) + "|" + s(b.top) + "|" + s(b.bottom)
-}
-
-func (t *styleTable) borderID(b border) int {
-	k := b.key()
-	if id, ok := t.bordIdx[k]; ok {
-		return id
-	}
-	t.borders = append(t.borders, b)
-	t.bordIdx[k] = len(t.borders) - 1
-	return len(t.borders) - 1
-}
-
-// numFmtID returns the id of a number format code, registering custom ones.
-func (t *styleTable) numFmtID(code string) int {
-	switch code {
-	case "", "General":
-		return fmtGeneral
-	case "0":
-		return 1
-	case "0.00":
-		return 2
-	case "#,##0":
-		return 3
-	case "#,##0.00":
-		return 4
-	case "0%":
-		return 9
-	case "0.00%":
-		return 10
-	}
-	if id, ok := t.fmtIdx[code]; ok {
-		return id
-	}
-	t.numFmts = append(t.numFmts, code)
-	id := 164 + len(t.numFmts) - 1
-	t.fmtIdx[code] = id
-	return id
-}
-
-func (x xf) key() string {
-	a := x.align
-	return fmt.Sprintf("%d|%d|%d|%d|%s|%s|%t|%d", x.fontID, x.fillID, x.borderID, x.numFmtID, a.horizontal, a.vertical, a.wrap, a.indent)
-}
-
-func (t *styleTable) xfID(x xf) int {
-	k := x.key()
-	if id, ok := t.xfIdx[k]; ok {
-		return id
-	}
-	t.xfs = append(t.xfs, x)
-	t.xfIdx[k] = len(t.xfs) - 1
-	return len(t.xfs) - 1
+	return code
 }
 
 // --- CSS to spreadsheet style mapping ---
@@ -179,15 +47,16 @@ var genericFonts = map[string]string{
 
 // fontOf converts a computed style's text properties to a font.
 func fontOf(s *css.Style) font {
-	f := font{sizePt: roundPt(s.FontSize)}
-	f.name = fontName(s.FontFamily)
-	f.bold = s.FontWeight >= 600
-	f.italic = s.FontStyle == "italic" || s.FontStyle == "oblique"
-	f.underline = s.TextDecorationLine.Underline
-	f.strike = s.TextDecorationLine.LineThrough
-	f.color = argb(s.Color)
-	if f.color == "FF000000" {
-		f.color = "" // automatic, like Excel's defaults
+	f := font{Size: roundPt(s.FontSize)}
+	f.Name = fontName(s.FontFamily)
+	f.Bold = s.FontWeight >= 600
+	f.Italic = s.FontStyle == "italic" || s.FontStyle == "oblique"
+	if s.TextDecorationLine.Underline {
+		f.Underline = style.UnderlineSingle
+	}
+	f.Strike = s.TextDecorationLine.LineThrough
+	if c := argb(s.Color); c != "" && c != "FF000000" { // black is automatic, like Excel's defaults
+		f.Color = style.RGB(c)
 	}
 	return f
 }
@@ -236,7 +105,7 @@ func clamp(v float64) float64 { return math.Max(0, math.Min(1, v)) }
 
 // blend composites a stack of CSS colours (bottom first) over white and
 // returns the visible fill, or an empty fill when nothing paints.
-func blend(layers ...css.Color) fill {
+func blend(layers ...css.Color) style.Fill {
 	var painted bool
 	cur := css.Color{R: 1, G: 1, B: 1, A: 1}
 	for _, l := range layers {
@@ -248,83 +117,83 @@ func blend(layers ...css.Color) fill {
 		cur = css.Color{R: l.R*a + cur.R*(1-a), G: l.G*a + cur.G*(1-a), B: l.B*a + cur.B*(1-a), A: 1}
 	}
 	if !painted {
-		return fill{}
+		return style.Fill{}
 	}
-	return fill{color: argb(cur)}
+	return style.Solid(style.RGB(argb(cur)))
 }
 
 // borderSideOf maps a CSS border side to a spreadsheet border style.
-func borderSideOf(s *css.Style, side int) borderSide {
+func borderSideOf(s *css.Style, side int) style.Line {
 	w := s.BorderUsed(side)
 	st := s.BorderStyle[side]
 	if w <= 0 || st == "none" || st == "hidden" || st == "" {
-		return borderSide{}
+		return style.Line{}
 	}
-	var style string
+	var ls style.LineStyle
 	switch st {
 	case "dashed":
-		style = "dashed"
+		ls = style.LineDashed
 		if w >= 2 {
-			style = "mediumDashed"
+			ls = style.LineMediumDashed
 		}
 	case "dotted":
-		style = "dotted"
+		ls = style.LineDotted
 	case "double":
-		style = "double"
+		ls = style.LineDouble
 	default: // solid, groove, ridge, inset, outset
 		switch {
 		case w < 0.75:
-			style = "hair"
+			ls = style.LineHair
 		case w < 1.5:
-			style = "thin"
+			ls = style.LineThin
 		case w < 2.5:
-			style = "medium"
+			ls = style.LineMedium
 		default:
-			style = "thick"
+			ls = style.LineThick
 		}
 	}
-	return borderSide{style: style, color: argb(s.BorderColor[side])}
-}
-
-func borderOf(s *css.Style) border {
-	return border{
-		top:    borderSideOf(s, css.Top),
-		right:  borderSideOf(s, css.Right),
-		bottom: borderSideOf(s, css.Bottom),
-		left:   borderSideOf(s, css.Left),
+	l := style.Line{Style: ls}
+	if c := argb(s.BorderColor[side]); c != "" {
+		l.Color = style.RGB(c)
 	}
+	return l
 }
 
-func (b border) any() bool {
-	return b.left.style != "" || b.right.style != "" || b.top.style != "" || b.bottom.style != ""
+func borderOf(s *css.Style) style.Border {
+	return style.Border{
+		Top:    borderSideOf(s, css.Top),
+		Right:  borderSideOf(s, css.Right),
+		Bottom: borderSideOf(s, css.Bottom),
+		Left:   borderSideOf(s, css.Left),
+	}
 }
 
 // horizontalOf maps text-align to a spreadsheet alignment. The initial value
 // "start" maps to "" (general) so numbers keep their natural alignment.
-func horizontalOf(s *css.Style) string {
+func horizontalOf(s *css.Style) style.HAlign {
 	switch s.TextAlign {
 	case "left", "-webkit-left":
-		return "left"
+		return style.HAlignLeft
 	case "right", "-webkit-right", "end":
-		return "right"
+		return style.HAlignRight
 	case "center", "-webkit-center":
-		return "center"
+		return style.HAlignCenter
 	case "justify":
-		return "justify"
+		return style.HAlignJustify
 	}
-	return ""
+	return style.HAlignGeneral
 }
 
-func verticalOf(s *css.Style) string {
+func verticalOf(s *css.Style) style.VAlign {
 	switch s.VerticalAlign {
 	case "top", "text-top":
-		return "top"
+		return style.VAlignTop
 	case "bottom", "text-bottom", "baseline":
-		return "bottom"
+		return style.VAlignBottom
 	case "middle":
-		return "center"
+		return style.VAlignCenter
 	}
-	return ""
+	return style.VAlignDefault
 }
 
 // widthChars converts a CSS pixel width to Excel's column width unit

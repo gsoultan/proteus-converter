@@ -133,7 +133,8 @@ func readBook(t *testing.T, data []byte) *rbook {
 			}
 		}
 	}
-	for _, must := range []string{"[Content_Types].xml", "_rels/.rels", "xl/workbook.xml", "xl/_rels/workbook.xml.rels", "xl/styles.xml", "xl/sharedStrings.xml", "docProps/core.xml", "docProps/app.xml"} {
+	// sharedStrings.xml is optional: a workbook without text has none.
+	for _, must := range []string{"[Content_Types].xml", "_rels/.rels", "xl/workbook.xml", "xl/_rels/workbook.xml.rels", "xl/styles.xml", "docProps/core.xml", "docProps/app.xml"} {
 		if _, ok := b.files[must]; !ok {
 			t.Fatalf("missing part %s", must)
 		}
@@ -169,8 +170,10 @@ func readBook(t *testing.T, data []byte) *rbook {
 			R []xr    `xml:"r"`
 		} `xml:"si"`
 	}
-	if err := xml.Unmarshal(b.files["xl/sharedStrings.xml"], &sst); err != nil {
-		t.Fatal(err)
+	if data, ok := b.files["xl/sharedStrings.xml"]; ok {
+		if err := xml.Unmarshal(data, &sst); err != nil {
+			t.Fatal(err)
+		}
 	}
 	for _, si := range sst.SI {
 		var rs rstring

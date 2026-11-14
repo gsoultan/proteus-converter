@@ -9,3 +9,5 @@ require (
 	github.com/yuin/goldmark v1.8.7
 	golang.org/x/net v0.62.0
 )
+
+require github.com/gsoultan/gexcel v0.0.0-20261102151606-6ee71aa94109

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
 
 // Package xlsx writes parsed HTML documents (from the HTML or Markdown
-// front ends) as Excel workbooks.
+// front ends) as Excel workbooks through github.com/gsoultan/gexcel.
 //
 // Every top-level <table> becomes one worksheet, named after its <caption>,
 // data-sheet, aria-label, title or id attribute, else the nearest preceding
@@ -67,14 +67,14 @@ func (*Writer) Write(ctx context.Context, doc *core.Document, cfg *core.Config, 
 	if err != nil {
 		return err
 	}
-	wb := &workbook{styles: newStyleTable(font{name: "Calibri", sizePt: 11}), sst: newSharedStrings()}
+	wb := &workbook{}
 	e := &extractor{ctx: ctx, cfg: cfg, styled: styled, wb: wb, warn: cfg.Warnf, names: map[string]bool{},
 		images: &imageStore{cache: map[string]*loadedImage{}}, widths: map[*sheet]cellWidths{}}
 	if err := e.run(doc.Root); err != nil {
 		return err
 	}
 	for _, sh := range wb.sheets {
-		fitImages(sh, wb.styles.defFontW)
+		fitImages(sh)
 	}
 	if err := ctx.Err(); err != nil {
 		return err

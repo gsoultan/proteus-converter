@@ -5,14 +5,14 @@ package xlsx
 import (
 	"fmt"
 	"strings"
+
+	"github.com/gsoultan/gexcel/style"
 )
 
-// workbook is the in-memory spreadsheet that the extractor fills and the
-// OOXML writer serialises.
+// workbook is the in-memory spreadsheet that the extractor fills; write()
+// hands it to gexcel for serialisation.
 type workbook struct {
 	sheets []*sheet
-	styles *styleTable
-	sst    *sharedStrings
 }
 
 type sheet struct {
@@ -55,7 +55,8 @@ type cell struct {
 	num     float64
 	boolean bool
 	formula string
-	xf      int // index into styleTable.xfs
+	st      style.Style
+	styled  bool // st was set, even if it equals the default
 }
 
 // textRun is a piece of rich text with its own font.

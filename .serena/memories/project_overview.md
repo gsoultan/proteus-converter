@@ -28,13 +28,16 @@ do) can feed any writer; Registry.ConvertTo wires them. pipeline.Style(ctx, Inpu
 stylesheet collection + cascade only (no layout) and returns *Styled{Styles, BaseURL,
 Metadata, Load}, which is what non-paged writers consume.
 
-formats/xlsx (no third-party deps; writes OOXML with archive/zip): each top-level <table> ->
+formats/xlsx (serialised by github.com/gsoultan/gexcel: extract.go/text.go/value.go fill the small
+internal workbook/sheet/row/cell model in model.go with gexcel style.Style values, gexcel.go copies
+it into a gexcel.Workbook and calls Save; no hand-written OOXML left): each top-level <table> ->
 one sheet (name: caption, data-sheet, aria-label, title, id, previous heading, "Table N";
 sanitised and unique), no tables -> one "Document" sheet with a row per text block. HTML
 table model placement (rowspan/colspan incl. rowspan=0) -> mergeCells; thead rows frozen +
 print titles; display:none skipped. Text: CSS white-space, <br>, nested blocks as lines, list
 markers, text-transform, ::before/::after; mixed fonts -> rich-text runs (sharedStrings).
-Styles from computed CSS: font (generic families mapped, -apple-system etc. skipped), fill =
+Styles from computed CSS (styles.go maps css.Style to style.Font/Fill/Border/Alignment; gexcel
+deduplicates them on save): font (generic families mapped, -apple-system etc. skipped), fill =
 table/col/rowgroup/row/cell backgrounds composited over white, borders (collapsing model:
 widest of cell/row/group/table wins), alignment, indent from padding-left, column widths from
 <col>/cell widths else auto-fit, row heights for multi-line text and images. value.go detects

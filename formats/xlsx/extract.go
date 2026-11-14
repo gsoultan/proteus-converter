@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gsoultan/gexcel/style"
 	"github.com/gsoultan/proteus-converter/core"
 	"github.com/gsoultan/proteus-converter/css"
 	"github.com/gsoultan/proteus-converter/pipeline"
@@ -320,7 +321,8 @@ func (e *extractor) table(t *html.Node) {
 			for r := p.r; r < p.r+p.rows; r++ {
 				for c := p.c; c < p.c+p.cols; c++ {
 					if r != p.r || c != p.c {
-						sh.cellAt(r, c).xf = anchor.xf
+						other := sh.cellAt(r, c)
+						other.st, other.styled = anchor.st, anchor.styled
 					}
 				}
 			}
@@ -336,7 +338,7 @@ func (e *extractor) table(t *html.Node) {
 			w = e.firstCellWidth(sh, c)
 		}
 		if !w.Auto && w.Pt > 0 && w.Pct == 0 {
-			sh.colAt(c).width = widthChars(w.Pt/0.75, e.wb.styles.defFontW)
+			sh.colAt(c).width = widthChars(w.Pt/0.75, defFontW)
 		} else {
 			sh.colAt(c).width = e.fitWidth(sh, c)
 		}
@@ -387,14 +389,14 @@ func (e *extractor) fitWidth(sh *sheet, c int) float64 {
 		txt := cl.text
 		if cl.kind == kindNumber {
 			txt = fmt.Sprintf("%g", cl.num)
-			if f := e.wb.styles.xfs[cl.xf]; f.numFmtID != 0 {
+			if cl.st.NumFmt != "" {
 				txt += "0000" // separators, symbols, decimals
 			}
 		}
 		scale := 1.0
-		if f := e.wb.styles.fonts[e.wb.styles.xfs[cl.xf].fontID]; f.sizePt > 0 {
-			scale = f.sizePt / 11
-			if f.bold {
+		if f := cl.st.Font; f.Size > 0 {
+			scale = f.Size / 11
+			if f.Bold {
 				scale *= 1.1
 			}
 		}
@@ -483,8 +485,7 @@ func (e *extractor) cell(sh *sheet, n *html.Node, r, c, rowspan, colspan int, cx
 	}
 
 	// style
-	x := xf{fontID: e.wb.styles.fontID(f)}
-	x.numFmtID = e.wb.styles.numFmtID(tv.numFmt)
+	x := style.Style{Font: f, NumFmt: numFmtCode(tv.numFmt)}
 	var layers []css.Color
 	if cx.table != nil {
 		layers = append(layers, cx.table.BackgroundColor)
@@ -499,13 +500,13 @@ func (e *extractor) cell(sh *sheet, n *html.Node, r, c, rowspan, colspan int, cx
 		layers = append(layers, cx.row.BackgroundColor)
 	}
 	layers = append(layers, s.BackgroundColor)
-	x.fillID = e.wb.styles.fillID(blend(layers...))
+	x.Fill = blend(layers...)
 	bd := borderOf(s)
 	if cx.collapse {
 		// Collapsing borders: the cell, its row, row group and (on the outer
 		// edges) the table all compete for each edge; the widest wins, ties
 		// going to the cell, then the row, then the group, then the table.
-		edge := func(side int, outer bool) borderSide {
+		edge := func(side int, outer bool) style.Line {
 			cands := []*css.Style{s, cx.row, cx.group}
 			if outer {
 				cands = append(cands, cx.table)
@@ -518,36 +519,36 @@ func (e *extractor) cell(sh *sheet, n *html.Node, r, c, rowspan, colspan int, cx
 				}
 				st := c.BorderStyle[side]
 				if st == "hidden" {
-					return borderSide{}
+					return style.Line{}
 				}
 				if w := c.BorderUsed(side); w > bestW && st != "none" && st != "" {
 					best, bestW = c, w
 				}
 			}
 			if best == nil {
-				return borderSide{}
+				return style.Line{}
 			}
 			return borderSideOf(best, side)
 		}
-		bd.top = edge(css.Top, cx.firstRow)
-		bd.bottom = edge(css.Bottom, cx.lastRow)
-		bd.left = pickSide(borderSideOf(s, css.Left), cx.firstCol, cx.table, css.Left)
-		bd.right = pickSide(borderSideOf(s, css.Right), cx.lastCol, cx.table, css.Right)
+		bd.Top = edge(css.Top, cx.firstRow)
+		bd.Bottom = edge(css.Bottom, cx.lastRow)
+		bd.Left = pickSide(borderSideOf(s, css.Left), cx.firstCol, cx.table, css.Left)
+		bd.Right = pickSide(borderSideOf(s, css.Right), cx.lastCol, cx.table, css.Right)
 	}
-	x.borderID = e.wb.styles.borderID(bd)
-	x.align.horizontal = horizontalOf(s)
-	if x.align.horizontal == "" && cl.kind == kindString && s.Direction == "rtl" {
-		x.align.horizontal = "right"
+	x.Border = bd
+	x.Alignment.Horizontal = horizontalOf(s)
+	if x.Alignment.Horizontal == style.HAlignGeneral && cl.kind == kindString && s.Direction == "rtl" {
+		x.Alignment.Horizontal = style.HAlignRight
 	}
-	x.align.vertical = verticalOf(s)
-	x.align.wrap = strings.Contains(cl.text, "\n") || (!s.Width.Auto && s.Width.Pt > 0 && s.WhiteSpace != "nowrap" && s.WhiteSpace != "pre")
+	x.Alignment.Vertical = verticalOf(s)
+	x.Alignment.WrapText = strings.Contains(cl.text, "\n") || (!s.Width.Auto && s.Width.Pt > 0 && s.WhiteSpace != "nowrap" && s.WhiteSpace != "pre")
 	if pl := s.Padding[css.Left]; !pl.Auto && pl.Pt >= 7.5 { // >= 10px reads as an indent level
-		x.align.indent = int(pl.Pt / 7.5)
-		if x.align.indent > 15 {
-			x.align.indent = 15
+		x.Alignment.Indent = int(pl.Pt / 7.5)
+		if x.Alignment.Indent > 15 {
+			x.Alignment.Indent = 15
 		}
 	}
-	cl.xf = e.wb.styles.xfID(x)
+	cl.st, cl.styled = x, true
 
 	if content.link != "" {
 		sh.links = append(sh.links, hyperlink{r: r, c: c, target: content.link, tooltip: content.linkTitle})
@@ -557,7 +558,7 @@ func (e *extractor) cell(sh *sheet, n *html.Node, r, c, rowspan, colspan int, cx
 	}
 	// Multi-line text needs a taller row for every line to show.
 	if lines := strings.Count(cl.text, "\n") + 1; lines > 1 && rowspan == 1 {
-		lh := f.sizePt * 1.3
+		lh := f.Size * 1.3
 		if lh == 0 {
 			lh = 15
 		}
@@ -569,15 +570,15 @@ func (e *extractor) cell(sh *sheet, n *html.Node, r, c, rowspan, colspan int, cx
 
 // pickSide returns the cell's own border side, or the table's when the cell
 // is on that outer edge and the table's border is wider.
-func pickSide(own borderSide, outer bool, table *css.Style, side int) borderSide {
+func pickSide(own style.Line, outer bool, table *css.Style, side int) style.Line {
 	if !outer || table == nil {
 		return own
 	}
 	ts := borderSideOf(table, side)
-	if ts.style == "" {
+	if ts.Style == "" {
 		return own
 	}
-	if own.style == "" || table.BorderUsed(side) > sideWidth(own) {
+	if own.Style == "" || table.BorderUsed(side) > sideWidth(own) {
 		return ts
 	}
 	return own
@@ -585,15 +586,15 @@ func pickSide(own borderSide, outer bool, table *css.Style, side int) borderSide
 
 // sideWidth gives the nominal width of a spreadsheet border style, for
 // comparing against CSS widths.
-func sideWidth(b borderSide) float64 {
-	switch b.style {
-	case "":
+func sideWidth(b style.Line) float64 {
+	switch b.Style {
+	case style.LineNone:
 		return 0
-	case "hair":
+	case style.LineHair:
 		return 0.5
-	case "thin", "dashed", "dotted":
+	case style.LineThin, style.LineDashed, style.LineDotted:
 		return 1
-	case "medium", "mediumDashed", "double":
+	case style.LineMedium, style.LineMediumDashed, style.LineDouble:
 		return 2
 	default:
 		return 3
@@ -656,12 +657,11 @@ func (e *extractor) blocks(n *html.Node, sh *sheet) {
 			if content.mixed {
 				cl.runs = content.runs
 			}
-			x := xf{fontID: e.wb.styles.fontID(f), fillID: e.wb.styles.fillID(blend(s.BackgroundColor)),
-				borderID: e.wb.styles.borderID(borderOf(s))}
-			x.align.horizontal = horizontalOf(s)
-			x.align.vertical = "top"
-			x.align.wrap = true
-			cl.xf = e.wb.styles.xfID(x)
+			x := style.Style{Font: f, Fill: blend(s.BackgroundColor), Border: borderOf(s)}
+			x.Alignment.Horizontal = horizontalOf(s)
+			x.Alignment.Vertical = style.VAlignTop
+			x.Alignment.WrapText = true
+			cl.st, cl.styled = x, true
 			if content.link != "" {
 				sh.links = append(sh.links, hyperlink{r: r, c: 1, target: content.link, tooltip: content.linkTitle})
 			}
@@ -669,7 +669,7 @@ func (e *extractor) blocks(n *html.Node, sh *sheet) {
 				e.placeImage(sh, img, r, 1, s)
 			}
 			if lines := strings.Count(content.text, "\n") + 1; lines > 1 {
-				sh.rows[r-1].heightPt = roundPt(float64(lines) * f.sizePt * 1.3)
+				sh.rows[r-1].heightPt = roundPt(float64(lines) * f.Size * 1.3)
 			}
 			return
 		}

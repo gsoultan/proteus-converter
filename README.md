@@ -47,8 +47,9 @@ layout, pagination), `render` (painter), `pipeline` (glue), `formats/html`,
 
 ## Excel output
 
-`formats/xlsx` writes a workbook straight from the styled document (cascade
-only, no page layout), with no third-party dependency:
+`formats/xlsx` builds a workbook straight from the styled document (cascade
+only, no page layout) and writes it through
+[gexcel](https://github.com/gsoultan/gexcel), the sibling Excel library:
 
 - Every top-level `<table>` becomes a worksheet named after its `<caption>`,
   `data-sheet`, `aria-label`, `title` or `id`, else the heading before it,

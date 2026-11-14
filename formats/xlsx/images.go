@@ -121,7 +121,7 @@ func (e *extractor) placeImage(sh *sheet, ref imageRef, r, c int, cellStyle *css
 	// Images in a cell with text sit after it: offset by one line so the text stays readable.
 	var offY int64
 	if cl := sh.cellAt(r, c); cl.kind != kindEmpty {
-		lh := fontOf(cellStyle).sizePt * 1.3 / 0.75
+		lh := fontOf(cellStyle).Size * 1.3 / 0.75
 		offY = int64(lh * emuPerPx)
 	}
 	sh.images = append(sh.images, anchoredImage{r: r, c: c, name: name, ext: li.ext, data: li.data,
@@ -131,13 +131,13 @@ func (e *extractor) placeImage(sh *sheet, ref imageRef, r, c int, cellStyle *css
 // fitImages grows rows and columns to the images anchored in them. Column
 // widths are in characters (about 7 px each at the default font); row heights
 // in points.
-func fitImages(sh *sheet, digitW float64) {
+func fitImages(sh *sheet) {
 	for _, img := range sh.images {
 		if rw := sh.rowAt(img.r); img.rowHeight > rw.heightPt {
 			rw.heightPt = img.rowHeight
 		}
-		if col := sh.colAt(img.c); widthChars(img.wPx, digitW)+1 > col.width {
-			col.width = widthChars(img.wPx, digitW) + 1
+		if col := sh.colAt(img.c); widthChars(img.wPx, defFontW)+1 > col.width {
+			col.width = widthChars(img.wPx, defFontW) + 1
 		}
 	}
 }

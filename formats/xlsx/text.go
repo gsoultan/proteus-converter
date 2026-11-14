@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/gsoultan/gexcel/style"
 	"github.com/gsoultan/proteus-converter/core"
 	"github.com/gsoultan/proteus-converter/css"
 	"golang.org/x/net/html"
@@ -195,8 +196,10 @@ func keepsLines(ws string) bool {
 // propagated from its ancestors.
 func runFont(s *css.Style, deco css.Decoration) font {
 	f := fontOf(s)
-	f.underline = f.underline || deco.Underline
-	f.strike = f.strike || deco.LineThrough
+	if deco.Underline {
+		f.Underline = style.UnderlineSingle
+	}
+	f.Strike = f.Strike || deco.LineThrough
 	return f
 }
 
