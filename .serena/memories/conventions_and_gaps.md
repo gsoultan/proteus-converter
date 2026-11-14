@@ -18,6 +18,21 @@
   webfonts 55 ms / 14 MB (whole OpenType-CFF fonts are embedded, no CFF subsetting -> 449 KB PDF). Font directory scan reads only header tables
   (parseSfntInfoAt over io.ReaderAt): 123 MB -> 0.6 MB allocated, ~3 ms. rasterize() reads
   NRGBA/Paletted/Gray pixels directly.
+- Perf pass 2026-11-14 (bench_test.go BenchmarkConvertTo; stress: 20k-row table, 1500 paragraphs):
+  PDF 8.2 s/1.65 GB -> 3.4 s/~500 MB, XLSX 4.3 s/900 MB -> 1.2 s/~230 MB, prose 3.5 s -> 0.55 s;
+  output pixel-identical (pdftoppm) and XLSX parts identical (except docProps/core.xml timestamps).
+  How: css/cascade.go interns computed *ElementStyle per (parent *Style, tag, hints+matched rule
+  indexes+inline style) within one Compute; fonts/face.go caches font-unit advances per Face
+  (map cap 1<<15) and offers KernBetween; layout/inline.go mergeText keeps TextItem.end instead
+  of re-measuring the merged string (was O(n^2)); layout/collapse.go uses fixed candidate arrays
+  and shares rewritten cell/row styles; no fmt in hot paths (xlsx argbOver, FormatFloat). gpdf
+  TextWidth has an allocation-free path (no Arabic, no ligature start glyph). Next candidates:
+  gpdf content building (appendGraphicOps/addRun/FillRectWithState), flate.
+- Password protection: core.Options.UserPassword/OwnerPassword via WithPassword(password, owner);
+  render.GPDF.SetPassword -> doc.SaveWithAES256Password; formats/xlsx write() passes
+  writer.Options{Password} to gexcel (ECMA-376 agile encryption, CFB container, not a zip).
+  CLI -password / -owner-password. Tests: password_test.go (PDF, OpenReaderWithPassword),
+  formats/xlsx/password_test.go (ErrEncrypted / ErrWrongPassword / reads back).
 - Watermarks: core.Watermark via WithWatermark (text or PNG/JPEG image, opacity, angle CCW, center or
   tiled, behind or over, page range). pipeline/watermark.go resolves it into render.Stamp (fonts from
   the conversion's resolver, bold 700, css.ParseColor); render.Paint stamps before (behind) or after

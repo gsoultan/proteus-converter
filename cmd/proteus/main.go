@@ -31,6 +31,8 @@ func main() {
 	title := flag.String("title", "", "document title")
 	noNumbers := flag.Bool("no-numbers", false, "xlsx: keep numeric-looking cell text as text")
 	imagesInCells := flag.Bool("images-in-cells", false, "xlsx: place the picture of an image-only cell in the cell (Excel 365)")
+	password := flag.String("password", "", "encrypt the output (AES-256) so that it opens only with this password")
+	ownerPassword := flag.String("owner-password", "", "pdf: password that unlocks editing restrictions; defaults to -password")
 	quiet := flag.Bool("q", false, "do not print warnings")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: proteus [flags] input.(html|md) [output.pdf|output.xlsx]\n")
@@ -76,6 +78,9 @@ func main() {
 	}
 	if *imagesInCells {
 		opts = append(opts, proteus.WithImagesInCells(true))
+	}
+	if *password != "" || *ownerPassword != "" {
+		opts = append(opts, proteus.WithPassword(*password, *ownerPassword))
 	}
 	if *noNumbers {
 		opts = append(opts, proteus.WithNumberDetection(false))

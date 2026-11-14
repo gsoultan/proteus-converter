@@ -5,6 +5,7 @@ package xlsx
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gsoultan/gexcel/style"
@@ -451,7 +452,7 @@ func (e *extractor) fitWidth(sh *sheet, c int) float64 {
 		cl := r.cells[c-1]
 		txt := cl.text
 		if cl.kind == kindNumber {
-			txt = fmt.Sprintf("%g", cl.num)
+			txt = strconv.FormatFloat(cl.num, 'g', -1, 64)
 			if cl.st.NumFmt != "" {
 				txt += "0000" // separators, symbols, decimals
 			}

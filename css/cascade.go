@@ -4,6 +4,7 @@ package css
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/andybalholm/cascadia"
@@ -54,6 +55,17 @@ type Cascade struct {
 	byKey map[string][]int // rule indexes keyed by rightmost id/class/tag; "" = universal
 	ctx   LengthContext
 	warn  func(string)
+	// interned shares the computed style of elements that have the same
+	// parent style, tag, presentational hints, matched rules and inline
+	// style: the cells of a long table compute their style once.
+	interned map[styleKey]*ElementStyle
+}
+
+// styleKey identifies every input of computeElement for a non-root element.
+type styleKey struct {
+	parent *Style
+	tag    string
+	inputs string // hints, matched rule indexes and inline style
 }
 
 // NewCascade compiles the given sheets. Sheets must be in document order
@@ -188,6 +200,8 @@ func rankOf(o Origin, important bool) int {
 func (c *Cascade) Compute(root *html.Node) map[*html.Node]*ElementStyle {
 	out := map[*html.Node]*ElementStyle{}
 	initial := Initial()
+	c.interned = map[styleKey]*ElementStyle{}
+	defer func() { c.interned = nil }()
 	var walk func(n *html.Node, parent *Style)
 	walk = func(n *html.Node, parent *Style) {
 		for ch := n.FirstChild; ch != nil; ch = ch.NextSibling {
@@ -204,31 +218,66 @@ func (c *Cascade) Compute(root *html.Node) map[*html.Node]*ElementStyle {
 }
 
 func (c *Cascade) computeElement(n *html.Node, parent *Style, initial *Style) *ElementStyle {
+	isRoot := n.Parent == nil || n.Parent.Type == html.DocumentNode
+	var key styleKey
+	var kb strings.Builder
+	cache := !isRoot && c.interned != nil
 	byPseudo := map[string][]matchedDecl{}
 	add := func(pseudo string, d Declaration, origin Origin, spec [4]int, order int) {
 		byPseudo[pseudo] = append(byPseudo[pseudo], matchedDecl{Declaration: d, rank: rankOf(origin, d.Important), spec: spec, order: order})
 	}
-	for _, d := range PresentationalHints(n) {
+	hints := PresentationalHints(n)
+	for _, d := range hints {
+		if cache {
+			kb.WriteString(d.Property)
+			kb.WriteByte(':')
+			kb.WriteString(d.Value)
+			kb.WriteByte(';')
+		}
+	}
+	matched := c.candidates(n)
+	j := 0
+	for _, idx := range matched {
+		if c.rules[idx].sel.Match(n) {
+			matched[j] = idx
+			j++
+		}
+	}
+	matched = matched[:j]
+	var inline string
+	for _, a := range n.Attr {
+		if a.Key == "style" {
+			inline = a.Val
+		}
+	}
+	if cache {
+		kb.WriteByte(0)
+		for _, idx := range matched {
+			kb.WriteString(strconv.Itoa(idx))
+			kb.WriteByte(',')
+		}
+		kb.WriteByte(0)
+		kb.WriteString(inline)
+		key = styleKey{parent: parent, tag: n.Data, inputs: kb.String()}
+		if es, ok := c.interned[key]; ok {
+			return es
+		}
+	}
+	for _, d := range hints {
 		for _, e := range Expand(d) {
 			add("", e, OriginAuthor, [4]int{}, -1)
 		}
 	}
-	for _, idx := range c.candidates(n) {
+	for _, idx := range matched {
 		r := &c.rules[idx]
-		if !r.sel.Match(n) {
-			continue
-		}
-		pseudo := r.pseudo
 		for _, d := range r.decls {
-			add(pseudo, d, r.origin, r.spec, r.order)
+			add(r.pseudo, d, r.origin, r.spec, r.order)
 		}
 	}
-	for _, a := range n.Attr {
-		if a.Key == "style" {
-			for _, d := range ParseDeclarations(a.Val) {
-				for _, e := range Expand(d) {
-					add("", e, OriginAuthor, [4]int{1, 0, 0, 0}, 1<<30)
-				}
+	if inline != "" {
+		for _, d := range ParseDeclarations(inline) {
+			for _, e := range Expand(d) {
+				add("", e, OriginAuthor, [4]int{1, 0, 0, 0}, 1<<30)
 			}
 		}
 	}
@@ -236,7 +285,6 @@ func (c *Cascade) computeElement(n *html.Node, parent *Style, initial *Style) *E
 		parent = initial
 	}
 	es := &ElementStyle{}
-	isRoot := n.Parent == nil || n.Parent.Type == html.DocumentNode
 	es.Style = c.computeStyle(byPseudo[""], parent, initial, isRoot)
 	if isRoot {
 		c.ctx.RootFontSize = es.Style.FontSize
@@ -274,6 +322,9 @@ func (c *Cascade) computeElement(n *html.Node, parent *Style, initial *Style) *E
 				es.Marker = st
 			}
 		}
+	}
+	if cache {
+		c.interned[key] = es
 	}
 	return es
 }

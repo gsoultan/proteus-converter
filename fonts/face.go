@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"sync"
+	"unicode/utf8"
 
 	"github.com/gsoultan/gpdf/font/truetype"
 )
@@ -32,7 +33,16 @@ type Face struct {
 	once sync.Once
 	ttf  *truetype.Font
 	err  error
+
+	// widths caches the advance of measured strings in font units, so that
+	// the thousands of identical cells of a long table are shaped once.
+	widthMu sync.Mutex
+	widths  map[string]int
 }
+
+// maxCachedWidths bounds the per-face width cache; the cache is dropped and
+// refilled when it grows past this.
+const maxCachedWidths = 1 << 15
 
 // Metrics are em-relative vertical metrics (fractions of the font size).
 type Metrics struct {
@@ -113,7 +123,35 @@ func (f *Face) Width(s string, size float64) float64 {
 	if err != nil || t == nil {
 		return 0
 	}
-	return t.TextWidth(s, size)
+	upm := f.unitsPerEm(t)
+	if upm == 0 {
+		return 0
+	}
+	f.widthMu.Lock()
+	units, ok := f.widths[s]
+	f.widthMu.Unlock()
+	if !ok {
+		for _, g := range t.Shape(s) {
+			units += g.Advance + g.Kern
+		}
+		f.widthMu.Lock()
+		if len(f.widths) >= maxCachedWidths {
+			f.widths = nil
+		}
+		if f.widths == nil {
+			f.widths = make(map[string]int, 256)
+		}
+		f.widths[s] = units
+		f.widthMu.Unlock()
+	}
+	return float64(units) * size / float64(upm)
+}
+
+func (f *Face) unitsPerEm(t *truetype.Font) int {
+	if f.info != nil && f.info.unitsPerEm != 0 {
+		return int(f.info.unitsPerEm)
+	}
+	return t.Metrics().UnitsPerEm
 }
 
 // Metrics returns em-relative vertical metrics.
@@ -156,4 +194,24 @@ func (f *Face) LineMetrics(size float64) (ascent, descent, normal float64) {
 	d := math.Round(m.Descent * px)
 	g := math.Round(m.LineGap * px)
 	return a * 0.75, d * 0.75, (a + d + g) * 0.75
+}
+
+// KernBetween returns the kerning, in points at size, that applies where
+// text b is drawn right after text a: the pair kern of a's last rune and b's
+// first rune. It is 0 for standard faces and when either text is empty.
+func (f *Face) KernBetween(a, b string, size float64) float64 {
+	if a == "" || b == "" || f.IsStandard() {
+		return 0
+	}
+	t, err := f.TrueType()
+	if err != nil || t == nil {
+		return 0
+	}
+	upm := f.unitsPerEm(t)
+	if upm == 0 {
+		return 0
+	}
+	last, _ := utf8.DecodeLastRuneInString(a)
+	first, _ := utf8.DecodeRuneInString(b)
+	return float64(t.Kern(last, first)) * size / float64(upm)
 }

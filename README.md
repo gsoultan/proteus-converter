@@ -27,7 +27,7 @@ err = proteus.ConvertFile(ctx, "report.md", "report.xlsx")
 xlsx, err := proteus.ConvertBytesTo(ctx, proteus.FormatHTML, proteus.OutputXLSX, src)
 ```
 
-CLI: `go run ./cmd/proteus [-page A4|Letter[-landscape]] [-margin mm] [-css extra.css] [-http] in.html|in.md [out.pdf|out.xlsx]`
+CLI: `go run ./cmd/proteus [-page A4|Letter[-landscape]] [-margin mm] [-css extra.css] [-http] [-password secret] in.html|in.md [out.pdf|out.xlsx]`
 
 ## Design
 
@@ -149,6 +149,21 @@ A text mark behind the document sits under its text but over page
 backgrounds and images; a mark over the document covers everything with the
 given opacity. SVG watermark images are not supported yet.
 
+## Password protection
+
+`WithPassword(password, ownerPassword)` encrypts the output so that it opens
+only with the password. PDFs use AES-256 (PDF 2.0 revision 6, via gpdf); the
+owner password unlocks editing and printing restrictions and defaults to the
+open password. Workbooks use the ECMA-376 agile encryption that Excel's
+"Encrypt with Password" produces (AES-256, SHA-512, via gexcel), so Excel,
+LibreOffice and Numbers all ask for the password. The CLI takes `-password`
+and `-owner-password`.
+
+```go
+pdf, err := proteus.ConvertBytes(ctx, proteus.FormatHTML, src, proteus.WithPassword("s3cret", ""))
+xlsx, err := proteus.ConvertBytesTo(ctx, proteus.FormatHTML, proteus.OutputXLSX, src, proteus.WithPassword("s3cret", ""))
+```
+
 ## Security
 
 Remote fetching is off by default; enable it with `WithHTTP(true)` or supply a
@@ -169,7 +184,13 @@ with `WithLocalFiles(false)`, and every resource is capped by
 - `TestNoLeaks` converts every fixture 35 times and checks goroutines and
   retained heap do not grow; `TestConcurrentConversions` runs them in parallel
   under `-race`. `BenchmarkConvert` reports time, allocations and PDF size per
-  fixture.
+  fixture; `BenchmarkConvertTo` does the same for every output format.
+- The engine is tuned for large documents: computed styles are shared between
+  elements with the same inputs, text measurement is cached per font, and
+  border collapsing and inline merging run in linear time. A 20,000-row table
+  renders to PDF in about 3.4 s using 500 MB (was 8.2 s and 1.65 GB) and to
+  XLSX in 1.2 s using 230 MB (was 4.3 s and 900 MB); 1,500 paragraphs of prose
+  take 0.55 s (was 3.5 s). Output is pixel-identical to the previous engine.
 - Scanning the system fonts reads only each font's header tables; outlines are
   loaded on first use and shared between conversions.
 

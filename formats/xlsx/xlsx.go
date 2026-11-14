@@ -82,5 +82,5 @@ func (*Writer) Write(ctx context.Context, doc *core.Document, cfg *core.Config, 
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return write(wb, styled.Metadata, dst)
+	return write(wb, styled.Metadata, cfg.UserPassword, dst)
 }
