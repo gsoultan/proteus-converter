@@ -174,9 +174,9 @@
     "semantic_hash": ""
   },
   "go.mod": {
-    "mtime": 1794623103.8449552,
-    "seen": 1794623164.5910003,
-    "ast_hash": "bdee9b3096675c4c1524c6e17cdbdbca",
+    "mtime": 1794623439.9449751,
+    "seen": 1794623466.2241693,
+    "ast_hash": "42dc9c74ac484807286af8aa5461a190",
     "semantic_hash": ""
   },
   "internal/tools/mdhtml/main.go": {
@@ -456,8 +456,8 @@
     "semantic_hash": ""
   },
   ".serena/memories/project_overview.md": {
-    "mtime": 1794623161.677465,
-    "seen": 1794623164.5910718,
+    "mtime": 1794623465.3947563,
+    "seen": 1794623466.2242212,
     "ast_hash": "642c85d9c802a1d6f3d0880678cfc5f7",
     "semantic_hash": ""
   },
