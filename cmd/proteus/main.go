@@ -1,10 +1,12 @@
 // Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
 
-// Command proteus converts HTML and Markdown files to PDF.
+// Command proteus converts HTML and Markdown files to PDF or XLSX. The
+// output format follows the output file's extension (.xlsx for a
+// spreadsheet, anything else for PDF).
 //
 // Usage:
 //
-//	proteus [flags] input.(html|md) [output.pdf]
+//	proteus [flags] input.(html|md) [output.pdf|output.xlsx]
 package main
 
 import (
@@ -27,9 +29,10 @@ func main() {
 	noSystemFonts := flag.Bool("no-system-fonts", false, "do not scan OS font directories")
 	fontDir := flag.String("font-dir", "", "additional directory with .ttf fonts")
 	title := flag.String("title", "", "document title")
+	noNumbers := flag.Bool("no-numbers", false, "xlsx: keep numeric-looking cell text as text")
 	quiet := flag.Bool("q", false, "do not print warnings")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: proteus [flags] input.(html|md) [output.pdf]\n")
+		fmt.Fprintf(os.Stderr, "usage: proteus [flags] input.(html|md) [output.pdf|output.xlsx]\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -69,6 +72,9 @@ func main() {
 	}
 	if *title != "" {
 		opts = append(opts, proteus.WithTitle(*title))
+	}
+	if *noNumbers {
+		opts = append(opts, proteus.WithNumberDetection(false))
 	}
 	opts = append(opts, proteus.WithHTTP(*allowHTTP), proteus.WithSystemFonts(!*noSystemFonts))
 	if !*quiet {
