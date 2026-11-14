@@ -86,15 +86,15 @@ func (e *extractor) loadImage(src string) *loadedImage {
 
 // placeImage anchors an image at a cell, sized by the <img> CSS width and
 // height (falling back to the intrinsic pixel size), and grows the row and
-// column so that it is visible.
-func (e *extractor) placeImage(sh *sheet, ref imageRef, r, c int, cellStyle *css.Style) {
+// column so that it is visible. It reports whether the image was added.
+func (e *extractor) placeImage(sh *sheet, ref imageRef, r, c int, cellStyle *css.Style) bool {
 	li := e.loadImage(ref.src)
 	if li.err != nil {
 		if !li.warned {
 			li.warned = true
 			e.warn(fmt.Sprintf("xlsx: image %s: %v", ref.src, li.err))
 		}
-		return
+		return false
 	}
 	w, h := float64(li.w), float64(li.h)
 	if ref.style != nil {
@@ -112,7 +112,7 @@ func (e *extractor) placeImage(sh *sheet, ref imageRef, r, c int, cellStyle *css
 	}
 	w, h = math.Round(w), math.Round(h)
 	if w < 1 || h < 1 {
-		return
+		return false
 	}
 	name := path.Base(ref.src)
 	if ref.alt != "" {
@@ -121,23 +121,24 @@ func (e *extractor) placeImage(sh *sheet, ref imageRef, r, c int, cellStyle *css
 	// Images in a cell with text sit after it: offset by one line so the text stays readable.
 	var offY int64
 	if cl := sh.cellAt(r, c); cl.kind != kindEmpty {
-		lh := fontOf(cellStyle).sizePt * 1.3 / 0.75
+		lh := fontOf(cellStyle).Size * 1.3 / 0.75
 		offY = int64(lh * emuPerPx)
 	}
-	sh.images = append(sh.images, anchoredImage{r: r, c: c, name: name, ext: li.ext, data: li.data,
+	sh.images = append(sh.images, anchoredImage{r: r, c: c, name: name, alt: ref.alt, ext: li.ext, data: li.data,
 		wPx: w, hPx: h, offYEMU: offY, rowHeight: roundPt(h*0.75) + roundPt(float64(offY)/emuPerPx*0.75)})
+	return true
 }
 
 // fitImages grows rows and columns to the images anchored in them. Column
 // widths are in characters (about 7 px each at the default font); row heights
 // in points.
-func fitImages(sh *sheet, digitW float64) {
+func fitImages(sh *sheet) {
 	for _, img := range sh.images {
 		if rw := sh.rowAt(img.r); img.rowHeight > rw.heightPt {
 			rw.heightPt = img.rowHeight
 		}
-		if col := sh.colAt(img.c); widthChars(img.wPx, digitW)+1 > col.width {
-			col.width = widthChars(img.wPx, digitW) + 1
+		if col := sh.colAt(img.c); widthChars(img.wPx, defFontW)+1 > col.width {
+			col.width = widthChars(img.wPx, defFontW) + 1
 		}
 	}
 }

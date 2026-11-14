@@ -47,8 +47,9 @@ layout, pagination), `render` (painter), `pipeline` (glue), `formats/html`,
 
 ## Excel output
 
-`formats/xlsx` writes a workbook straight from the styled document (cascade
-only, no page layout), with no third-party dependency:
+`formats/xlsx` builds a workbook straight from the styled document (cascade
+only, no page layout) and writes it through
+[gexcel](https://github.com/gsoultan/gexcel), the sibling Excel library:
 
 - Every top-level `<table>` becomes a worksheet named after its `<caption>`,
   `data-sheet`, `aria-label`, `title` or `id`, else the heading before it,
@@ -66,7 +67,8 @@ only, no page layout), with no third-party dependency:
   Roman, Courier New, …; browser-only names like `-apple-system` are
   skipped), size, bold, italic, underline, strike and colour; the fill is the
   table → column → row group → row → cell background stack composited over
-  white; borders map to thin/medium/thick/dashed/dotted/double with the
+  white, or a gradient fill for a cell with a `linear-gradient()` background;
+  borders map to thin/medium/thick/dashed/dotted/double with the
   collapsing model resolved against row, row group and table borders;
   `text-align` and `vertical-align` set the alignment, `padding-left` an
   indent, and `<col>`/cell widths the column widths (else auto-fit).
@@ -76,9 +78,17 @@ only, no page layout), with no third-party dependency:
   date-times. Identifiers like `007` stay text, as do header cells. Authors
   can force a type with `data-type="string|number|bool|date|formula"`,
   `data-value` and `data-formula="=SUM(B2:B9)"`; `WithNumberDetection(false)`
-  (CLI `-no-numbers`) turns the detection off.
-- `<a href>` becomes a cell hyperlink; PNG, JPEG and GIF `<img>` are embedded
-  at their cell (sized by CSS width/height), SVG is reported as a warning.
+  (CLI `-no-numbers`) turns the detection off. Formulas are calculated on
+  conversion, so viewers that do not calculate show their values (Excel
+  recalculates on open; a function the engine lacks keeps the cell's text).
+- `<a href>` becomes a cell hyperlink, and `<a href="#id">` a link to the cell
+  (or the sheet of the table or heading) that holds the id.
+- PNG, JPEG and GIF `<img>` float over their cell (sized by CSS width/height);
+  SVG is reported as a warning. `WithImagesInCells(true)` (CLI
+  `-images-in-cells`) stores the picture of a cell that holds one image and no
+  text as the value of that cell (Excel 365 "Place in Cell"), so it sorts and
+  filters with its row. Excel 2019 and earlier and LibreOffice show `#VALUE!`
+  there, which is why it is opt-in.
 - Document metadata (`<title>`, author, keywords, language, or `WithMetadata`)
   fills the workbook properties.
 

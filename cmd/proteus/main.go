@@ -30,6 +30,7 @@ func main() {
 	fontDir := flag.String("font-dir", "", "additional directory with .ttf fonts")
 	title := flag.String("title", "", "document title")
 	noNumbers := flag.Bool("no-numbers", false, "xlsx: keep numeric-looking cell text as text")
+	imagesInCells := flag.Bool("images-in-cells", false, "xlsx: place the picture of an image-only cell in the cell (Excel 365)")
 	quiet := flag.Bool("q", false, "do not print warnings")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: proteus [flags] input.(html|md) [output.pdf|output.xlsx]\n")
@@ -72,6 +73,9 @@ func main() {
 	}
 	if *title != "" {
 		opts = append(opts, proteus.WithTitle(*title))
+	}
+	if *imagesInCells {
+		opts = append(opts, proteus.WithImagesInCells(true))
 	}
 	if *noNumbers {
 		opts = append(opts, proteus.WithNumberDetection(false))

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gsoultan/gexcel/style"
 	"github.com/gsoultan/proteus-converter/core"
 	"github.com/gsoultan/proteus-converter/css"
 	"github.com/gsoultan/proteus-converter/pipeline"
@@ -26,8 +27,64 @@ type extractor struct {
 	// lastHeading is the text of the most recent heading, which names the
 	// next table that has no caption.
 	lastHeading string
+	// headingIDs are the ids of the headings met since the last table; they
+	// point at the sheet of the next table.
+	headingIDs []string
+	// anchors maps element ids to the cell that holds them, and pending are
+	// the "#id" links to resolve once every sheet exists.
+	anchors map[string]anchor
+	pending []pendingLink
 	// omitted counts non-table blocks skipped because tables map to sheets.
 	omitted int
+}
+
+// anchor is the cell an element id landed in.
+type anchor struct {
+	sh   *sheet
+	r, c int
+}
+
+// pendingLink is a link to an id elsewhere in the document.
+type pendingLink struct {
+	anchor
+	id, tooltip string
+}
+
+// mark records where ids landed; the first use of an id wins, as in HTML.
+func (e *extractor) mark(sh *sheet, r, c int, ids ...string) {
+	for _, id := range ids {
+		if _, ok := e.anchors[id]; !ok && id != "" {
+			if e.anchors == nil {
+				e.anchors = map[string]anchor{}
+			}
+			e.anchors[id] = anchor{sh, r, c}
+		}
+	}
+}
+
+// link records the hyperlink of a cell: an external target, or else a link
+// to an id that resolveLinks turns into a cell reference.
+func (e *extractor) link(sh *sheet, r, c int, ct content) {
+	switch {
+	case ct.link != "":
+		sh.links = append(sh.links, hyperlink{r: r, c: c, target: ct.link, tooltip: ct.linkTitle})
+	case ct.internal != "":
+		e.pending = append(e.pending, pendingLink{anchor{sh, r, c}, ct.internal, ct.linkTitle})
+	}
+}
+
+// resolveLinks turns "#id" links into links to the cell that holds the id.
+// Links to ids that were not written (text outside tables, say) are dropped.
+func (e *extractor) resolveLinks() {
+	for _, p := range e.pending {
+		to, ok := e.anchors[p.id]
+		if !ok {
+			continue
+		}
+		loc := "'" + strings.ReplaceAll(to.sh.name, "'", "''") + "'!" + cellRef(to.r, to.c)
+		p.sh.links = append(p.sh.links, hyperlink{r: p.r, c: p.c, location: loc, tooltip: p.tooltip})
+	}
+	e.pending = nil
 }
 
 func (e *extractor) style(n *html.Node) *css.Style {
@@ -63,10 +120,12 @@ func (e *extractor) run(root *html.Node) error {
 		sh := e.newSheet("Document", "document")
 		e.wb.sheets = append(e.wb.sheets, sh)
 		e.blocks(body, sh)
+		e.resolveLinks()
 		return e.ctx.Err()
 	}
-	e.lastHeading = ""
+	e.lastHeading, e.headingIDs = "", nil
 	e.collectTables(body, nil, false)
+	e.resolveLinks()
 	if e.omitted > 0 {
 		e.warn(fmt.Sprintf("xlsx: %d block(s) of text outside tables were not written; each table becomes a sheet", e.omitted))
 	}
@@ -97,6 +156,9 @@ func (e *extractor) collectTables(n *html.Node, out *[]*html.Node, count bool) {
 		case "h1", "h2", "h3", "h4", "h5", "h6":
 			if !count {
 				e.lastHeading = collapseText(plainText(n, e), "normal")
+				if id := attr(n, "id"); id != "" {
+					e.headingIDs = append(e.headingIDs, id)
+				}
 			}
 			return
 		}
@@ -234,6 +296,8 @@ func (e *extractor) table(t *html.Node) {
 	sh := e.newSheet(name, "table")
 	e.lastHeading = "" // a heading names only the table that follows it
 	e.wb.sheets = append(e.wb.sheets, sh)
+	e.mark(sh, 1, 1, append(e.headingIDs, attr(t, "id"))...)
+	e.headingIDs = nil
 	ts := e.style(t)
 	collapse := ts.BorderCollapse == "collapse"
 
@@ -320,7 +384,8 @@ func (e *extractor) table(t *html.Node) {
 			for r := p.r; r < p.r+p.rows; r++ {
 				for c := p.c; c < p.c+p.cols; c++ {
 					if r != p.r || c != p.c {
-						sh.cellAt(r, c).xf = anchor.xf
+						other := sh.cellAt(r, c)
+						other.st, other.styled = anchor.st, anchor.styled
 					}
 				}
 			}
@@ -336,7 +401,7 @@ func (e *extractor) table(t *html.Node) {
 			w = e.firstCellWidth(sh, c)
 		}
 		if !w.Auto && w.Pt > 0 && w.Pct == 0 {
-			sh.colAt(c).width = widthChars(w.Pt/0.75, e.wb.styles.defFontW)
+			sh.colAt(c).width = widthChars(w.Pt/0.75, defFontW)
 		} else {
 			sh.colAt(c).width = e.fitWidth(sh, c)
 		}
@@ -387,14 +452,14 @@ func (e *extractor) fitWidth(sh *sheet, c int) float64 {
 		txt := cl.text
 		if cl.kind == kindNumber {
 			txt = fmt.Sprintf("%g", cl.num)
-			if f := e.wb.styles.xfs[cl.xf]; f.numFmtID != 0 {
+			if cl.st.NumFmt != "" {
 				txt += "0000" // separators, symbols, decimals
 			}
 		}
 		scale := 1.0
-		if f := e.wb.styles.fonts[e.wb.styles.xfs[cl.xf].fontID]; f.sizePt > 0 {
-			scale = f.sizePt / 11
-			if f.bold {
+		if f := cl.st.Font; f.Size > 0 {
+			scale = f.Size / 11
+			if f.Bold {
 				scale *= 1.1
 			}
 		}
@@ -483,8 +548,7 @@ func (e *extractor) cell(sh *sheet, n *html.Node, r, c, rowspan, colspan int, cx
 	}
 
 	// style
-	x := xf{fontID: e.wb.styles.fontID(f)}
-	x.numFmtID = e.wb.styles.numFmtID(tv.numFmt)
+	x := style.Style{Font: f, NumFmt: numFmtCode(tv.numFmt)}
 	var layers []css.Color
 	if cx.table != nil {
 		layers = append(layers, cx.table.BackgroundColor)
@@ -499,13 +563,16 @@ func (e *extractor) cell(sh *sheet, n *html.Node, r, c, rowspan, colspan int, cx
 		layers = append(layers, cx.row.BackgroundColor)
 	}
 	layers = append(layers, s.BackgroundColor)
-	x.fillID = e.wb.styles.fillID(blend(layers...))
+	x.Fill = blend(layers...)
+	if g := gradientOf(s.BackgroundGradient, layers[:len(layers)-1]...); g != nil {
+		x.Fill = style.Fill{Gradient: g}
+	}
 	bd := borderOf(s)
 	if cx.collapse {
 		// Collapsing borders: the cell, its row, row group and (on the outer
 		// edges) the table all compete for each edge; the widest wins, ties
 		// going to the cell, then the row, then the group, then the table.
-		edge := func(side int, outer bool) borderSide {
+		edge := func(side int, outer bool) style.Line {
 			cands := []*css.Style{s, cx.row, cx.group}
 			if outer {
 				cands = append(cands, cx.table)
@@ -518,46 +585,48 @@ func (e *extractor) cell(sh *sheet, n *html.Node, r, c, rowspan, colspan int, cx
 				}
 				st := c.BorderStyle[side]
 				if st == "hidden" {
-					return borderSide{}
+					return style.Line{}
 				}
 				if w := c.BorderUsed(side); w > bestW && st != "none" && st != "" {
 					best, bestW = c, w
 				}
 			}
 			if best == nil {
-				return borderSide{}
+				return style.Line{}
 			}
 			return borderSideOf(best, side)
 		}
-		bd.top = edge(css.Top, cx.firstRow)
-		bd.bottom = edge(css.Bottom, cx.lastRow)
-		bd.left = pickSide(borderSideOf(s, css.Left), cx.firstCol, cx.table, css.Left)
-		bd.right = pickSide(borderSideOf(s, css.Right), cx.lastCol, cx.table, css.Right)
+		bd.Top = edge(css.Top, cx.firstRow)
+		bd.Bottom = edge(css.Bottom, cx.lastRow)
+		bd.Left = pickSide(borderSideOf(s, css.Left), cx.firstCol, cx.table, css.Left)
+		bd.Right = pickSide(borderSideOf(s, css.Right), cx.lastCol, cx.table, css.Right)
 	}
-	x.borderID = e.wb.styles.borderID(bd)
-	x.align.horizontal = horizontalOf(s)
-	if x.align.horizontal == "" && cl.kind == kindString && s.Direction == "rtl" {
-		x.align.horizontal = "right"
+	x.Border = bd
+	x.Alignment.Horizontal = horizontalOf(s)
+	if x.Alignment.Horizontal == style.HAlignGeneral && cl.kind == kindString && s.Direction == "rtl" {
+		x.Alignment.Horizontal = style.HAlignRight
 	}
-	x.align.vertical = verticalOf(s)
-	x.align.wrap = strings.Contains(cl.text, "\n") || (!s.Width.Auto && s.Width.Pt > 0 && s.WhiteSpace != "nowrap" && s.WhiteSpace != "pre")
+	x.Alignment.Vertical = verticalOf(s)
+	x.Alignment.WrapText = strings.Contains(cl.text, "\n") || (!s.Width.Auto && s.Width.Pt > 0 && s.WhiteSpace != "nowrap" && s.WhiteSpace != "pre")
 	if pl := s.Padding[css.Left]; !pl.Auto && pl.Pt >= 7.5 { // >= 10px reads as an indent level
-		x.align.indent = int(pl.Pt / 7.5)
-		if x.align.indent > 15 {
-			x.align.indent = 15
+		x.Alignment.Indent = int(pl.Pt / 7.5)
+		if x.Alignment.Indent > 15 {
+			x.Alignment.Indent = 15
 		}
 	}
-	cl.xf = e.wb.styles.xfID(x)
+	cl.st, cl.styled = x, true
 
-	if content.link != "" {
-		sh.links = append(sh.links, hyperlink{r: r, c: c, target: content.link, tooltip: content.linkTitle})
-	}
+	e.mark(sh, r, c, content.ids...)
+	e.link(sh, r, c, content)
+	inCell := e.cfg.ImagesInCells && cl.kind == kindEmpty && len(content.images) == 1
 	for _, img := range content.images {
-		e.placeImage(sh, img, r, c, s)
+		if e.placeImage(sh, img, r, c, s) && inCell {
+			sh.images[len(sh.images)-1].inCell = true
+		}
 	}
 	// Multi-line text needs a taller row for every line to show.
 	if lines := strings.Count(cl.text, "\n") + 1; lines > 1 && rowspan == 1 {
-		lh := f.sizePt * 1.3
+		lh := f.Size * 1.3
 		if lh == 0 {
 			lh = 15
 		}
@@ -569,15 +638,15 @@ func (e *extractor) cell(sh *sheet, n *html.Node, r, c, rowspan, colspan int, cx
 
 // pickSide returns the cell's own border side, or the table's when the cell
 // is on that outer edge and the table's border is wider.
-func pickSide(own borderSide, outer bool, table *css.Style, side int) borderSide {
+func pickSide(own style.Line, outer bool, table *css.Style, side int) style.Line {
 	if !outer || table == nil {
 		return own
 	}
 	ts := borderSideOf(table, side)
-	if ts.style == "" {
+	if ts.Style == "" {
 		return own
 	}
-	if own.style == "" || table.BorderUsed(side) > sideWidth(own) {
+	if own.Style == "" || table.BorderUsed(side) > sideWidth(own) {
 		return ts
 	}
 	return own
@@ -585,15 +654,15 @@ func pickSide(own borderSide, outer bool, table *css.Style, side int) borderSide
 
 // sideWidth gives the nominal width of a spreadsheet border style, for
 // comparing against CSS widths.
-func sideWidth(b borderSide) float64 {
-	switch b.style {
-	case "":
+func sideWidth(b style.Line) float64 {
+	switch b.Style {
+	case style.LineNone:
 		return 0
-	case "hair":
+	case style.LineHair:
 		return 0.5
-	case "thin", "dashed", "dotted":
+	case style.LineThin, style.LineDashed, style.LineDotted:
 		return 1
-	case "medium", "mediumDashed", "double":
+	case style.LineMedium, style.LineMediumDashed, style.LineDouble:
 		return 2
 	default:
 		return 3
@@ -656,20 +725,21 @@ func (e *extractor) blocks(n *html.Node, sh *sheet) {
 			if content.mixed {
 				cl.runs = content.runs
 			}
-			x := xf{fontID: e.wb.styles.fontID(f), fillID: e.wb.styles.fillID(blend(s.BackgroundColor)),
-				borderID: e.wb.styles.borderID(borderOf(s))}
-			x.align.horizontal = horizontalOf(s)
-			x.align.vertical = "top"
-			x.align.wrap = true
-			cl.xf = e.wb.styles.xfID(x)
-			if content.link != "" {
-				sh.links = append(sh.links, hyperlink{r: r, c: 1, target: content.link, tooltip: content.linkTitle})
+			x := style.Style{Font: f, Fill: blend(s.BackgroundColor), Border: borderOf(s)}
+			if g := gradientOf(s.BackgroundGradient); g != nil {
+				x.Fill = style.Fill{Gradient: g}
 			}
+			x.Alignment.Horizontal = horizontalOf(s)
+			x.Alignment.Vertical = style.VAlignTop
+			x.Alignment.WrapText = true
+			cl.st, cl.styled = x, true
+			e.mark(sh, r, 1, content.ids...)
+			e.link(sh, r, 1, content)
 			for _, img := range content.images {
 				e.placeImage(sh, img, r, 1, s)
 			}
 			if lines := strings.Count(content.text, "\n") + 1; lines > 1 {
-				sh.rows[r-1].heightPt = roundPt(float64(lines) * f.sizePt * 1.3)
+				sh.rows[r-1].heightPt = roundPt(float64(lines) * f.Size * 1.3)
 			}
 			return
 		}

@@ -5,14 +5,14 @@ package xlsx
 import (
 	"fmt"
 	"strings"
+
+	"github.com/gsoultan/gexcel/style"
 )
 
-// workbook is the in-memory spreadsheet that the extractor fills and the
-// OOXML writer serialises.
+// workbook is the in-memory spreadsheet that the extractor fills; write()
+// hands it to gexcel for serialisation.
 type workbook struct {
 	sheets []*sheet
-	styles *styleTable
-	sst    *sharedStrings
 }
 
 type sheet struct {
@@ -55,7 +55,8 @@ type cell struct {
 	num     float64
 	boolean bool
 	formula string
-	xf      int // index into styleTable.xfs
+	st      style.Style
+	styled  bool // st was set, even if it equals the default
 }
 
 // textRun is a piece of rich text with its own font.
@@ -73,14 +74,17 @@ func (r cellRange) String() string {
 }
 
 type hyperlink struct {
-	r, c    int
-	target  string
-	tooltip string
+	r, c     int
+	target   string // URL, or empty for a link inside the workbook
+	location string // "'Sheet'!A1" for a link inside the workbook
+	tooltip  string
 }
 
 type anchoredImage struct {
 	r, c      int // 1-based anchor cell
 	name      string
+	alt       string
+	inCell    bool   // the picture is the cell's value instead of floating over it
 	ext       string // "png" or "jpeg"
 	data      []byte
 	wPx, hPx  float64

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Gembit Soultan Shirazi <gembit.soultan@gmail.com>
 
 // Package xlsx writes parsed HTML documents (from the HTML or Markdown
-// front ends) as Excel workbooks.
+// front ends) as Excel workbooks through github.com/gsoultan/gexcel.
 //
 // Every top-level <table> becomes one worksheet, named after its <caption>,
 // data-sheet, aria-label, title or id attribute, else the nearest preceding
@@ -15,8 +15,11 @@
 // ISO dates and accounting negatives are stored as typed values with a
 // number format that shows the original text; data-type="string|number|
 // bool|date|formula", data-value and data-formula attributes override the
-// detection. Links become cell hyperlinks and PNG/JPEG/GIF images are
-// embedded at their cell.
+// detection. Formulas are calculated on conversion so that their values are
+// cached in the file. A linear-gradient() cell background becomes a gradient
+// fill. Links become cell hyperlinks ("#id" links point at the cell that
+// holds the id) and PNG/JPEG/GIF images float at their cell, or, with
+// core.WithImagesInCells, become the value of a cell that holds nothing else.
 //
 // A document without tables becomes one sheet with a row per block of text.
 // Text outside tables in a document that has tables is not written (a
@@ -67,14 +70,14 @@ func (*Writer) Write(ctx context.Context, doc *core.Document, cfg *core.Config, 
 	if err != nil {
 		return err
 	}
-	wb := &workbook{styles: newStyleTable(font{name: "Calibri", sizePt: 11}), sst: newSharedStrings()}
+	wb := &workbook{}
 	e := &extractor{ctx: ctx, cfg: cfg, styled: styled, wb: wb, warn: cfg.Warnf, names: map[string]bool{},
 		images: &imageStore{cache: map[string]*loadedImage{}}, widths: map[*sheet]cellWidths{}}
 	if err := e.run(doc.Root); err != nil {
 		return err
 	}
 	for _, sh := range wb.sheets {
-		fitImages(sh, wb.styles.defFontW)
+		fitImages(sh)
 	}
 	if err := ctx.Err(); err != nil {
 		return err

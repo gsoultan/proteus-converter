@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/gsoultan/gexcel/style"
 	"github.com/gsoultan/proteus-converter/core"
 	"github.com/gsoultan/proteus-converter/css"
 	"golang.org/x/net/html"
@@ -22,6 +23,8 @@ type content struct {
 	font      font // the single font of the text when not mixed (may differ from the cell's)
 	link      string
 	linkTitle string
+	internal  string   // target id of the first "#id" link, when there is no other link
+	ids       []string // id (and <a name>) anchors inside the content
 	images    []imageRef
 }
 
@@ -61,6 +64,9 @@ func (e *extractor) inlineContent(n *html.Node, cellStyle *css.Style) content {
 		if e.hidden(n) {
 			return
 		}
+		if id := attr(n, "id"); id != "" {
+			out.ids = append(out.ids, id)
+		}
 		s := e.style(n)
 		d := deco
 		d.Underline = d.Underline || s.TextDecorationLine.Underline
@@ -93,9 +99,19 @@ func (e *extractor) inlineContent(n *html.Node, cellStyle *css.Style) content {
 			}
 			return
 		case "a":
-			if href := strings.TrimSpace(attr(n, "href")); href != "" && out.link == "" && !strings.HasPrefix(href, "#") {
+			href := strings.TrimSpace(attr(n, "href"))
+			switch {
+			case href == "" || out.link != "":
+			case !strings.HasPrefix(href, "#"):
 				out.link = core.ResolveURL(e.styled.BaseURL, href)
 				out.linkTitle = attr(n, "title")
+				out.internal = ""
+			case len(href) > 1 && out.internal == "":
+				out.internal = href[1:]
+				out.linkTitle = attr(n, "title")
+			}
+			if name := attr(n, "name"); name != "" {
+				out.ids = append(out.ids, name)
 			}
 		}
 		block := (s.IsBlockLevel() || s.Display == "list-item" || s.Display == "table" || s.Display == "table-row") && s.Display != "table-cell"
@@ -125,6 +141,9 @@ func (e *extractor) inlineContent(n *html.Node, cellStyle *css.Style) content {
 		if block {
 			segs = append(segs, segment{brk: true})
 		}
+	}
+	if id := attr(n, "id"); id != "" {
+		out.ids = append(out.ids, id)
 	}
 	deco := cellStyle.TextDecorationLine
 	if cellStyle.Display == "list-item" {
@@ -195,8 +214,10 @@ func keepsLines(ws string) bool {
 // propagated from its ancestors.
 func runFont(s *css.Style, deco css.Decoration) font {
 	f := fontOf(s)
-	f.underline = f.underline || deco.Underline
-	f.strike = f.strike || deco.LineThrough
+	if deco.Underline {
+		f.Underline = style.UnderlineSingle
+	}
+	f.Strike = f.Strike || deco.LineThrough
 	return f
 }
 

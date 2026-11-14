@@ -45,10 +45,17 @@
   synthetic bold/italic, @font-face TrueType/OpenType-CFF/WOFF 1.0/WOFF2 (fonts/woff2.go, brotli
   via andybalholm/brotli, glyf/loca/hmtx transforms reversed), GPOS kerning (gpdf), table header
   and footer repeat on every page, SVG text rotation and inherited fonts/stylesheets.
+- XLSX output goes through gexcel; anything the spreadsheet needs that the internal model lacks
+  (charts, tables, validation, protection...) is added by extending model.go and gexcel.go rather
+  than by writing XML. reader_test.go still re-parses the .xlsx independently (sharedStrings.xml is
+  optional there: gexcel omits it when there is no text). Control characters are stripped in
+  gexcel.go (cleanXML) before values reach gexcel.
 - XLSX gaps: text outside tables is dropped when the document has tables (warning counts
   blocks); nested tables are flattened into the cell text (em space between cells, newline
-  between rows); gradients/background images, text alpha, diagonal borders, column-level
-  hidden only via visibility:collapse; WOFF/system font names are passed through as-is.
+  between rows); radial/repeating gradients and background images, text alpha, diagonal borders, column-level
+  hidden only via visibility:collapse; WOFF/system font names are passed through as-is; SVG
+  images are not embedded; "#id" links to text that was not written are dropped; in-cell
+  pictures (Config.ImagesInCells) are opt-in because LibreOffice and Excel <= 2019 show #VALUE!.
 - Unsupported / approximated (PDF): quirks-mode UA margins (use <!DOCTYPE html>), grid-auto-flow column
   and dense, radial/conic gradients, SVG gradients (average stop color, with a warning), SVG
   filters/masks/clipPath, overflow clipping of text, canvas/video, WOFF2 collections, contextual

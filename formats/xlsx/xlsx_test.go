@@ -175,7 +175,7 @@ func TestFixtureCells(t *testing.T) {
 		t.Errorf("C5 = %+v", c)
 	}
 	// formula and bool
-	if c := s.cell(t, "B6"); c.f != "SUM(B3:B4)" || c.t != "str" || c.v != "x" {
+	if c := s.cell(t, "B6"); c.f != "SUM(B3:B4)" || c.t != "" || c.v != "-765.5" { // calculated, not the cell text "x"
 		t.Errorf("B6 = %+v", c)
 	}
 	if c := s.cell(t, "C6"); c.t != "b" || c.v != "1" {

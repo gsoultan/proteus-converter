@@ -28,23 +28,33 @@ do) can feed any writer; Registry.ConvertTo wires them. pipeline.Style(ctx, Inpu
 stylesheet collection + cascade only (no layout) and returns *Styled{Styles, BaseURL,
 Metadata, Load}, which is what non-paged writers consume.
 
-formats/xlsx (no third-party deps; writes OOXML with archive/zip): each top-level <table> ->
+formats/xlsx (serialised by github.com/gsoultan/gexcel: extract.go/text.go/value.go fill the small
+internal workbook/sheet/row/cell model in model.go with gexcel style.Style values, gexcel.go copies
+it into a gexcel.Workbook and calls Save; no hand-written OOXML left): each top-level <table> ->
 one sheet (name: caption, data-sheet, aria-label, title, id, previous heading, "Table N";
 sanitised and unique), no tables -> one "Document" sheet with a row per text block. HTML
 table model placement (rowspan/colspan incl. rowspan=0) -> mergeCells; thead rows frozen +
 print titles; display:none skipped. Text: CSS white-space, <br>, nested blocks as lines, list
 markers, text-transform, ::before/::after; mixed fonts -> rich-text runs (sharedStrings).
-Styles from computed CSS: font (generic families mapped, -apple-system etc. skipped), fill =
+Styles from computed CSS (styles.go maps css.Style to style.Font/Fill/Border/Alignment; gexcel
+deduplicates them on save): font (generic families mapped, -apple-system etc. skipped), fill =
 table/col/rowgroup/row/cell backgrounds composited over white, borders (collapsing model:
 widest of cell/row/group/table wins), alignment, indent from padding-left, column widths from
 <col>/cell widths else auto-fit, row heights for multi-line text and images. value.go detects
 numbers, %, currency ($ € £ ¥ ₹ USD EUR GBP, Rp/IDR with dot thousands), accounting negatives,
 ISO dates -> typed cells with a number format that shows the original text; header cells and
 identifiers (007) stay text; data-type/data-value/data-formula override; Config.DetectNumbers
-(WithNumberDetection, CLI -no-numbers). <a href> -> hyperlink rels; PNG/JPEG/GIF <img> ->
-drawing oneCellAnchor (GIF re-encoded PNG, SVG warned). Metadata -> docProps/core.xml.
+(WithNumberDetection, CLI -no-numbers). Formulas: gexcel.go cacheFormulas runs gexcel's Calculate
+so cached values are written (fullCalcOnLoad stays on; #NAME? from a missing function or a cycle
+falls back to the cell's text). <a href> -> hyperlink rels; <a href="#id"> -> internal link
+(extract.go mark/link/resolveLinks: ids of cells, tables and the headings that name a table).
+linear-gradient() cell background -> gradient fill (styles.go gradientOf; CSS angle - 90 =
+Excel degree). PNG/JPEG/GIF <img> -> drawing oneCellAnchor (GIF re-encoded PNG, SVG warned);
+Config.ImagesInCells (WithImagesInCells, CLI -images-in-cells, off by default) stores the picture
+of an image-only cell as a gexcel cell image (rich value). Metadata -> docProps/core.xml.
 Tests: reader_test.go re-parses the package independently; xlsx_test.go checks cells, styles,
-merges, names, images, limits (32767 chars, control chars), and TestLibreOfficeRoundTrip
+merges, names, images, limits (32767 chars, control chars); features_test.go checks in-cell
+pictures, internal links, gradients and cached formula values; TestLibreOfficeRoundTrip
 (skips without soffice) compares LibreOffice's CSV export, formula evaluated.
 
 Accuracy tooling: accuracy/run.sh with internal/tools/pixdiff (raw and -near ink diff),
@@ -52,4 +62,5 @@ internal/tools/textdiff (word positions vs Chromium) and internal/tools/mdhtml (
 HTML Chromium renders). See accuracy_and_blink_quirks for thresholds and current numbers.
 
 Toolchain: go 1.26 (GOTOOLCHAIN=auto). Deps: gpdf (pinned to a main commit that has
-DrawTextWithStyle / text opacity), goldmark, x/net, cascadia.
+DrawTextWithStyle / text opacity), gexcel (the Excel writer; pinned to the commit that adds cell pictures until a release after v0.1.0 is tagged, then `go get github.com/gsoultan/gexcel@vX.Y.Z`),
+goldmark, x/net, cascadia.

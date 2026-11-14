@@ -119,6 +119,7 @@ var (
 	WithWatermark          = core.WithWatermark
 	WithMarkdownStylesheet = core.WithMarkdownStylesheet
 	WithNumberDetection    = core.WithNumberDetection
+	WithImagesInCells      = core.WithImagesInCells
 	WithoutMarkdownTheme   = core.WithoutMarkdownTheme
 	WithWarningHandler     = core.WithWarningHandler
 )
