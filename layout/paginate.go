@@ -165,21 +165,56 @@ func (e *Engine) Paginate(items []Item) ([]*Page, error) {
 	if len(pages) == 0 {
 		pages = append(pages, &Page{})
 	}
-	// position: fixed boxes repeat on every page, on top of the flow
+	// position: fixed boxes repeat on every page, on top of the flow. They
+	// were laid out against the page area, so they are copied as they are:
+	// a box that reaches into the page margins (a running header with a
+	// negative top, a footer below the content area) is kept whole rather
+	// than clipped or moved to another page.
 	if len(e.fixedItems) > 0 {
 		for _, pg := range pages {
-			flow := pg.Items
-			tmp := &Page{}
-			pages0 := pages
-			pages = []*Page{tmp}
-			for _, it := range copyItems(e.fixedItems, 0, 0) {
-				add(it)
-			}
-			pages = pages0
-			pg.Items = append(flow, tmp.Items...)
+			pg.Items = append(pg.Items, flattenItems(copyItems(e.fixedItems, 0, 0))...)
 		}
 	}
 	return pages, nil
+}
+
+// flattenItems expands groups and drops items with non-finite coordinates.
+func flattenItems(items []Item) []Item {
+	out := make([]Item, 0, len(items))
+	for _, it := range items {
+		switch v := it.(type) {
+		case *groupItem:
+			out = append(out, flattenItems(v.items)...)
+		case *RectItem:
+			if v.W > 0 && v.H > 0 && finite(v.X, v.Y, v.W, v.H) {
+				out = append(out, v)
+			}
+		case *TextItem:
+			if finite(v.X, v.Baseline) {
+				out = append(out, v)
+			}
+		case *AnchorItem:
+			if v.Name != "" {
+				out = append(out, v)
+			}
+		case *BookmarkItem:
+			if v.Title != "" {
+				out = append(out, v)
+			}
+		default:
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+func finite(vs ...float64) bool {
+	for _, v := range vs {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return false
+		}
+	}
+	return true
 }
 
 // spanPages returns the pages a vertical extent [y0, y1] touches.

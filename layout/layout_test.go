@@ -179,3 +179,37 @@ func TestGradientBackgroundPaintsPaths(t *testing.T) {
 		t.Fatalf("gradient painted %d path strips, want several", n)
 	}
 }
+
+// Running headers and footers live in the page margins: a position: fixed
+// box with a negative top, or one below the content area, repeats whole on
+// every page instead of being clipped to the content box or pushed to the
+// next page.
+func TestFixedBoxesReachIntoPageMargins(t *testing.T) {
+	pages := pagesHTML(t, `<style>
+		body{margin:0}
+		.h{position:fixed;top:-50px;left:0;right:0;height:30px;background:#eef}
+		.f{position:fixed;bottom:-40px;left:0;right:0;height:20px;background:#fee}
+		.sp{height:900px}
+	</style><div class="h">H</div><div class="f">F</div><div class="sp">body</div><p>end</p>`)
+	if len(pages) != 2 {
+		t.Fatalf("pages = %d, want 2", len(pages))
+	}
+	for i, items := range pages {
+		var top, bottom bool
+		for _, it := range items {
+			r, ok := it.(*layout.RectItem)
+			if !ok {
+				continue
+			}
+			switch {
+			case r.Y < 0 && r.H == 22.5: // 30px
+				top = true
+			case r.Y >= pageH && r.H == 15: // 20px
+				bottom = true
+			}
+		}
+		if !top || !bottom {
+			t.Errorf("page %d: header rect %v, footer rect %v", i+1, top, bottom)
+		}
+	}
+}

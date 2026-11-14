@@ -82,6 +82,8 @@ type Config struct {
 	Outline  bool // build PDF bookmarks from headings; on by default
 	Tagged   bool // mark the PDF as tagged
 
+	Watermark *Watermark // translucent stamp on the output pages; nil for none
+
 	// Spreadsheet output (XLSX): store numeric-looking text as numbers,
 	// percentages, currency amounts and ISO dates as typed cells; on by default.
 	DetectNumbers bool
