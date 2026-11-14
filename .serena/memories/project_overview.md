@@ -55,4 +55,5 @@ internal/tools/textdiff (word positions vs Chromium) and internal/tools/mdhtml (
 HTML Chromium renders). See accuracy_and_blink_quirks for thresholds and current numbers.
 
 Toolchain: go 1.26 (GOTOOLCHAIN=auto). Deps: gpdf (pinned to a main commit that has
-DrawTextWithStyle / text opacity), goldmark, x/net, cascadia.
+DrawTextWithStyle / text opacity), gexcel v0.1.0 (the Excel writer; bump with `go get github.com/gsoultan/gexcel@vX.Y.Z`),
+goldmark, x/net, cascadia.
