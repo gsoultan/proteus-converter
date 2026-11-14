@@ -3,7 +3,6 @@
 package xlsx
 
 import (
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -99,7 +98,13 @@ func argbOver(c, bg css.Color) string {
 	r := clamp(c.R*a + bg.R*(1-a))
 	g := clamp(c.G*a + bg.G*(1-a))
 	b := clamp(c.B*a + bg.B*(1-a))
-	return fmt.Sprintf("FF%02X%02X%02X", int(math.Round(r*255)), int(math.Round(g*255)), int(math.Round(b*255)))
+	const hexDigits = "0123456789ABCDEF"
+	out := [8]byte{'F', 'F'}
+	for i, v := range [3]float64{r, g, b} {
+		n := int(math.Round(v * 255))
+		out[2+2*i], out[3+2*i] = hexDigits[n>>4], hexDigits[n&0xF]
+	}
+	return string(out[:])
 }
 
 func clamp(v float64) float64 { return math.Max(0, math.Min(1, v)) }

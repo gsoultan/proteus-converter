@@ -84,6 +84,12 @@ type Config struct {
 
 	Watermark *Watermark // translucent stamp on the output pages; nil for none
 
+	// Password protection of the output file. UserPassword opens the file
+	// (AES-256 for both PDF and XLSX). OwnerPassword is the PDF permissions
+	// password; it defaults to UserPassword. Empty means no encryption.
+	UserPassword  string
+	OwnerPassword string
+
 	// Spreadsheet output (XLSX): store numeric-looking text as numbers,
 	// percentages, currency amounts and ISO dates as typed cells; on by default.
 	DetectNumbers bool
@@ -195,6 +201,13 @@ func WithOutline(enabled bool) Option { return func(c *Config) { c.Outline = ena
 
 // WithTagged marks the output as a tagged PDF.
 func WithTagged(enabled bool) Option { return func(c *Config) { c.Tagged = enabled } }
+
+// WithPassword encrypts the output with AES-256 so that it opens only with
+// password (PDF and XLSX). For PDF, owner is the permissions password that
+// unlocks editing and printing restrictions; empty uses password for both.
+func WithPassword(password, owner string) Option {
+	return func(c *Config) { c.UserPassword, c.OwnerPassword = password, owner }
+}
 
 // WithNumberDetection turns on or off the typing of numeric-looking cell text
 // (numbers, percentages, currency amounts, ISO dates) in spreadsheet output.

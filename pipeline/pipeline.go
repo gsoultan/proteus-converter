@@ -156,6 +156,9 @@ func Render(ctx context.Context, in Input, cfg *core.Config, w io.Writer) (err e
 	meta := documentMetadata(in.Doc)
 	mergeMeta(&meta, cfg.Metadata)
 	p := render.NewGPDF(meta, cfg.Outline, warn)
+	if cfg.UserPassword != "" || cfg.OwnerPassword != "" {
+		p.SetPassword(cfg.UserPassword, cfg.OwnerPassword)
+	}
 	d := &render.Document{PageWidth: pageSize.Width, PageHeight: pageSize.Height,
 		MarginTop: marginsBox.Top, MarginLeft: marginsBox.Left, ContentW: cw, ContentH: ch, Pages: pages}
 	if hasCanvas {

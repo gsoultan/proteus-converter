@@ -11,6 +11,7 @@ import (
 
 	"github.com/gsoultan/gexcel"
 	"github.com/gsoultan/gexcel/model"
+	"github.com/gsoultan/gexcel/writer"
 	"github.com/gsoultan/proteus-converter/core"
 )
 
@@ -19,7 +20,7 @@ const emuPerPx = model.EMUPerPixel
 
 // write builds a gexcel workbook from the extracted sheets and saves it as
 // an .xlsx package.
-func write(wb *workbook, meta core.Metadata, w io.Writer) error {
+func write(wb *workbook, meta core.Metadata, password string, w io.Writer) error {
 	out := gexcel.NewEmpty()
 	var sheets []gexcel.Sheet
 	for i, sh := range wb.sheets {
@@ -46,6 +47,9 @@ func write(wb *workbook, meta core.Metadata, w io.Writer) error {
 	now := time.Now().UTC().Truncate(time.Second)
 	props.Created, props.Modified = now, now
 	out.SetFullCalcOnLoad(true)
+	if password != "" {
+		return out.Save(w, writer.Options{Password: password})
+	}
 	return out.Save(w)
 }
 

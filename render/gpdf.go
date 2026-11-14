@@ -29,6 +29,17 @@ type GPDF struct {
 	outline    bool
 	xobjects   map[*layout.Image]string // image XObjects registered on the current page
 	decoded    map[*layout.Image]*rawImage
+	userPW     string
+	ownerPW    string
+}
+
+// SetPassword makes Finish write an AES-256 encrypted PDF that opens with
+// user; owner unlocks the permissions (defaults to user). Empty disables it.
+func (g *GPDF) SetPassword(user, owner string) {
+	g.userPW, g.ownerPW = user, owner
+	if g.ownerPW == "" {
+		g.ownerPW = user
+	}
 }
 
 // NewGPDF returns a gpdf painter. outline enables bookmarks from headings.
@@ -203,5 +214,8 @@ func (g *GPDF) Finish(w io.Writer) error {
 		return fmt.Errorf("render: build PDF: %w", err)
 	}
 	defer d.Close()
+	if g.userPW != "" || g.ownerPW != "" {
+		return d.SaveWithAES256Password(w, g.userPW, g.ownerPW)
+	}
 	return d.Save(w)
 }

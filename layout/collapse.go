@@ -92,57 +92,75 @@ func collapseBorders(t *Box, rows []*trow, ncols int) {
 	ts := t.Style
 	// hline(i, col): line above row i (i == nr is the bottom edge).
 	hline := func(i, col int) cborder {
-		var cands []cborder
+		var cands [6]cborder
+		n := 0
 		if i > 0 {
 			if c := occ[i-1][col]; c != nil {
-				cands = append(cands, sideBorder(c.box.Style, css.Bottom, 4))
+				cands[n] = sideBorder(c.box.Style, css.Bottom, 4)
+				n++
 			}
-			cands = append(cands, sideBorder(rows[i-1].box.Style, css.Bottom, 3))
+			cands[n] = sideBorder(rows[i-1].box.Style, css.Bottom, 3)
+			n++
 			if g := rows[i-1].group; g != nil && (i == nr || rows[i].group != g) {
-				cands = append(cands, sideBorder(g.Style, css.Bottom, 2))
+				cands[n] = sideBorder(g.Style, css.Bottom, 2)
+				n++
 			}
 		} else {
-			cands = append(cands, sideBorder(ts, css.Top, 1))
+			cands[n] = sideBorder(ts, css.Top, 1)
+			n++
 		}
 		if i < nr {
 			if c := occ[i][col]; c != nil {
-				cands = append(cands, sideBorder(c.box.Style, css.Top, 4))
+				cands[n] = sideBorder(c.box.Style, css.Top, 4)
+				n++
 			}
-			cands = append(cands, sideBorder(rows[i].box.Style, css.Top, 3))
+			cands[n] = sideBorder(rows[i].box.Style, css.Top, 3)
+			n++
 			if g := rows[i].group; g != nil && (i == 0 || rows[i-1].group != g) {
-				cands = append(cands, sideBorder(g.Style, css.Top, 2))
+				cands[n] = sideBorder(g.Style, css.Top, 2)
+				n++
 			}
 		} else {
-			cands = append(cands, sideBorder(ts, css.Bottom, 1))
+			cands[n] = sideBorder(ts, css.Bottom, 1)
+			n++
 		}
-		return resolve(cands...)
+		return resolve(cands[:n]...)
 	}
 	// vline(row, j): line left of column j (j == ncols is the right edge).
 	vline := func(ri, j int) cborder {
-		var cands []cborder
+		var cands [6]cborder
+		n := 0
 		if j > 0 {
 			if c := occ[ri][j-1]; c != nil {
-				cands = append(cands, sideBorder(c.box.Style, css.Right, 4))
+				cands[n] = sideBorder(c.box.Style, css.Right, 4)
+				n++
 			}
 		} else {
-			cands = append(cands, sideBorder(rows[ri].box.Style, css.Left, 3))
+			cands[n] = sideBorder(rows[ri].box.Style, css.Left, 3)
+			n++
 			if g := rows[ri].group; g != nil {
-				cands = append(cands, sideBorder(g.Style, css.Left, 2))
+				cands[n] = sideBorder(g.Style, css.Left, 2)
+				n++
 			}
-			cands = append(cands, sideBorder(ts, css.Left, 1))
+			cands[n] = sideBorder(ts, css.Left, 1)
+			n++
 		}
 		if j < ncols {
 			if c := occ[ri][j]; c != nil {
-				cands = append(cands, sideBorder(c.box.Style, css.Left, 4))
+				cands[n] = sideBorder(c.box.Style, css.Left, 4)
+				n++
 			}
 		} else {
-			cands = append(cands, sideBorder(rows[ri].box.Style, css.Right, 3))
+			cands[n] = sideBorder(rows[ri].box.Style, css.Right, 3)
+			n++
 			if g := rows[ri].group; g != nil {
-				cands = append(cands, sideBorder(g.Style, css.Right, 2))
+				cands[n] = sideBorder(g.Style, css.Right, 2)
+				n++
 			}
-			cands = append(cands, sideBorder(ts, css.Right, 1))
+			cands[n] = sideBorder(ts, css.Right, 1)
+			n++
 		}
-		return resolve(cands...)
+		return resolve(cands[:n]...)
 	}
 	widest := func(bs []cborder) cborder {
 		best := cborder{style: "none"}
@@ -192,21 +210,43 @@ func collapseBorders(t *Box, rows []*trow, ncols int) {
 			s.BorderStyle[side] = "none"
 		}
 	}
-	for c, p := range plans {
-		s := *c.box.Style
-		top, bottom, left, right := widest(p.top), widest(p.bottom), widest(p.left), widest(p.right)
-		set(&s, css.Top, top, toPx(top.width)-toPx(top.width)/2)
-		set(&s, css.Bottom, bottom, toPx(bottom.width)/2)
-		set(&s, css.Left, left, toPx(left.width)-toPx(left.width)/2)
-		set(&s, css.Right, right, toPx(right.width)/2)
-		c.box.Style = &s
+	// Cells that share a computed style and resolve to the same borders
+	// share one rewritten style: a long table has a handful of distinct
+	// cell styles, not one per cell.
+	type cellKey struct {
+		orig                     *css.Style
+		top, bottom, left, right cborder
 	}
+	shared := map[cellKey]*css.Style{}
 	for _, r := range rows {
-		s := *r.box.Style
-		for side := range 4 {
-			s.BorderStyle[side] = "none"
+		for _, c := range r.cells {
+			p := plans[c]
+			k := cellKey{c.box.Style, widest(p.top), widest(p.bottom), widest(p.left), widest(p.right)}
+			st, ok := shared[k]
+			if !ok {
+				s := *c.box.Style
+				set(&s, css.Top, k.top, toPx(k.top.width)-toPx(k.top.width)/2)
+				set(&s, css.Bottom, k.bottom, toPx(k.bottom.width)/2)
+				set(&s, css.Left, k.left, toPx(k.left.width)-toPx(k.left.width)/2)
+				set(&s, css.Right, k.right, toPx(k.right.width)/2)
+				st = &s
+				shared[k] = st
+			}
+			c.box.Style = st
 		}
-		r.box.Style = &s
+	}
+	rowStyles := map[*css.Style]*css.Style{}
+	for _, r := range rows {
+		st, ok := rowStyles[r.box.Style]
+		if !ok {
+			s := *r.box.Style
+			for side := range 4 {
+				s.BorderStyle[side] = "none"
+			}
+			st = &s
+			rowStyles[r.box.Style] = st
+		}
+		r.box.Style = st
 	}
 	s := *ts
 	for side := range 4 {

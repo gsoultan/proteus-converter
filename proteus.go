@@ -120,6 +120,7 @@ var (
 	WithMarkdownStylesheet = core.WithMarkdownStylesheet
 	WithNumberDetection    = core.WithNumberDetection
 	WithImagesInCells      = core.WithImagesInCells
+	WithPassword           = core.WithPassword
 	WithoutMarkdownTheme   = core.WithoutMarkdownTheme
 	WithWarningHandler     = core.WithWarningHandler
 )

@@ -45,6 +45,10 @@ type TextItem struct {
 	// Rotate turns the text about (X, Baseline), in degrees clockwise on the
 	// page (rotated SVG text).
 	Rotate float64
+
+	// end is where the text ends on the baseline, kept up to date as runs
+	// are merged so that merging does not re-measure the whole item.
+	end float64
 }
 
 // Clip is a rounded-rectangle clip region; a zero width means no clipping.

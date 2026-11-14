@@ -4,6 +4,7 @@ package layout
 
 import (
 	"math"
+	"unicode/utf8"
 
 	"github.com/gsoultan/proteus-converter/css"
 	"github.com/gsoultan/proteus-converter/fonts"
@@ -653,13 +654,14 @@ func (l *layouter) emitTextFrag(f *frag, x, baseline float64) {
 	}
 	by := baseline + shift
 	for _, r := range f.runs {
-		merged := l.mergeText(r.Text, r.Face, f, x, by)
+		w := r.Face.Width(r.Text, f.style.FontSize) + f.style.LetterSpacing*float64(utf8.RuneCountInString(r.Text))
+		merged := l.mergeText(r.Text, w, r.Face, f, x, by)
 		if !merged && f.kind != fSpace {
 			sb, si := synthesis(f.style, r.Face)
 			l.emit(&TextItem{X: x, Baseline: by, Text: r.Text, Face: r.Face, Size: f.style.FontSize,
-				Color: f.style.Color, LetterSpacing: f.style.LetterSpacing, SynthBold: sb, SynthItalic: si})
+				Color: f.style.Color, LetterSpacing: f.style.LetterSpacing, SynthBold: sb, SynthItalic: si, end: x + w})
 		}
-		x += r.Face.Width(r.Text, f.style.FontSize) + f.style.LetterSpacing*float64(len([]rune(r.Text)))
+		x += w
 	}
 }
 
@@ -675,8 +677,9 @@ func synthesis(s *css.Style, face *fonts.Face) (bold, italic bool) {
 	return bold, italic
 }
 
-// mergeText appends text to the previous text item when it continues it exactly.
-func (l *layouter) mergeText(text string, face *fonts.Face, f *frag, x, baseline float64) bool {
+// mergeText appends text (of advance w, letter spacing included) to the
+// previous text item when it continues it exactly.
+func (l *layouter) mergeText(text string, w float64, face *fonts.Face, f *frag, x, baseline float64) bool {
 	if len(l.items) == 0 {
 		return false
 	}
@@ -687,10 +690,12 @@ func (l *layouter) mergeText(text string, face *fonts.Face, f *frag, x, baseline
 		prev.LetterSpacing != f.style.LetterSpacing || math.Abs(prev.Baseline-baseline) > eps {
 		return false
 	}
-	end := prev.X + prev.Face.Width(prev.Text, prev.Size) + prev.LetterSpacing*float64(len([]rune(prev.Text)))
-	if math.Abs(end-x) > 0.05 {
+	if math.Abs(prev.end-x) > 0.05 {
 		return false
 	}
+	// The merged item is drawn as one string, so its end moves by the width
+	// of text plus the kerning across the join.
+	prev.end += w + face.KernBetween(prev.Text, text, prev.Size)
 	prev.Text += text
 	return true
 }
