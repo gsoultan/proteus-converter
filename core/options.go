@@ -87,6 +87,10 @@ type Config struct {
 	// Spreadsheet output (XLSX): store numeric-looking text as numbers,
 	// percentages, currency amounts and ISO dates as typed cells; on by default.
 	DetectNumbers bool
+	// Spreadsheet output (XLSX): store the picture of a cell that holds one
+	// image and no text as the cell's value (Excel 365 "Place in Cell")
+	// instead of floating it over the cell; off by default.
+	ImagesInCells bool
 
 	// Markdown-specific.
 	MarkdownCSS        string // replaces the built-in Markdown theme when non-empty
@@ -196,6 +200,13 @@ func WithTagged(enabled bool) Option { return func(c *Config) { c.Tagged = enabl
 // (numbers, percentages, currency amounts, ISO dates) in spreadsheet output.
 // Off, every cell is text unless a data-type attribute says otherwise.
 func WithNumberDetection(on bool) Option { return func(c *Config) { c.DetectNumbers = on } }
+
+// WithImagesInCells stores the picture of a table cell that holds one image
+// and no text as the value of that cell in spreadsheet output (Excel 365
+// "Place in Cell"), so that it moves, sorts and filters with its row. Excel
+// 2019 and earlier and LibreOffice show #VALUE! in such cells, so it is off
+// by default and pictures float over their cell.
+func WithImagesInCells(on bool) Option { return func(c *Config) { c.ImagesInCells = on } }
 
 // WithMarkdownStylesheet replaces the built-in Markdown theme with css.
 func WithMarkdownStylesheet(css string) Option { return func(c *Config) { c.MarkdownCSS = css } }

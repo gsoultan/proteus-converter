@@ -18,9 +18,9 @@
     "semantic_hash": ""
   },
   "cmd/proteus/main.go": {
-    "mtime": 1793599956.033433,
-    "seen": 1794623164.5909078,
-    "ast_hash": "3214cf821c261a944b910afa66de0b37",
+    "mtime": 1794624299.6024265,
+    "seen": 1794624446.1891818,
+    "ast_hash": "21eabc33297c667b2010adf9d9a49e42",
     "semantic_hash": ""
   },
   "core/converter.go": {
@@ -42,9 +42,9 @@
     "semantic_hash": ""
   },
   "core/options.go": {
-    "mtime": 1794622698.7889311,
-    "seen": 1794623164.5909243,
-    "ast_hash": "4aeadf9f77909fd566f2d11d2fb97604",
+    "mtime": 1794624299.6011434,
+    "seen": 1794624446.1891873,
+    "ast_hash": "0c246144a762de8ce96032c361e08de0",
     "semantic_hash": ""
   },
   "core/registry.go": {
@@ -174,9 +174,9 @@
     "semantic_hash": ""
   },
   "go.mod": {
-    "mtime": 1794623439.9449751,
-    "seen": 1794623466.2241693,
-    "ast_hash": "42dc9c74ac484807286af8aa5461a190",
+    "mtime": 1794624330.2490282,
+    "seen": 1794624446.189238,
+    "ast_hash": "5b20f0d8abac32d65d46e7ccaf89d89a",
     "semantic_hash": ""
   },
   "internal/tools/mdhtml/main.go": {
@@ -294,9 +294,9 @@
     "semantic_hash": ""
   },
   "proteus.go": {
-    "mtime": 1794622698.820354,
-    "seen": 1794623164.5910544,
-    "ast_hash": "320ebd1b086c156bc78942e83f3454e3",
+    "mtime": 1794624299.6015468,
+    "seen": 1794624446.1892872,
+    "ast_hash": "5674cf6fc752eb3e274d78567c8f9e63",
     "semantic_hash": ""
   },
   "proteus_test.go": {
@@ -318,9 +318,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1794623161.677004,
-    "seen": 1794623164.591073,
-    "ast_hash": "542ea138bf9bdaacd9943e14ac8e94b5",
+    "mtime": 1794624429.8466556,
+    "seen": 1794624446.1893013,
+    "ast_hash": "b35bd8f0dfb060a177adf496b31560ea",
     "semantic_hash": ""
   },
   "testdata/invoice.html": {
@@ -450,15 +450,15 @@
     "semantic_hash": ""
   },
   ".serena/memories/conventions_and_gaps.md": {
-    "mtime": 1794623161.6778417,
-    "seen": 1794623164.5910702,
-    "ast_hash": "94886048e0c0e33e17af994a9f8ec9ff",
+    "mtime": 1794624429.847522,
+    "seen": 1794624446.189299,
+    "ast_hash": "49dc6dcb8a43e8c692d97f1d1a04d999",
     "semantic_hash": ""
   },
   ".serena/memories/project_overview.md": {
-    "mtime": 1794623465.3947563,
-    "seen": 1794623466.2242212,
-    "ast_hash": "642c85d9c802a1d6f3d0880678cfc5f7",
+    "mtime": 1794624429.848287,
+    "seen": 1794624446.1893003,
+    "ast_hash": "ebe849a581f298053477a9126926622d",
     "semantic_hash": ""
   },
   "testdata/boxes.html": {
@@ -702,45 +702,45 @@
     "semantic_hash": ""
   },
   "formats/xlsx/extract.go": {
-    "mtime": 1794622912.2570264,
-    "seen": 1794623164.590984,
-    "ast_hash": "198e00c51349848dfc866df762ca666c",
+    "mtime": 1794624299.605976,
+    "seen": 1794624446.1892238,
+    "ast_hash": "39598e6667003d7c897cf835c2283e1c",
     "semantic_hash": ""
   },
   "formats/xlsx/gexcel.go": {
-    "mtime": 1794622912.274985,
-    "seen": 1794623164.5909858,
-    "ast_hash": "3f77b6678a5afe5a76986075bff853d9",
+    "mtime": 1794624299.6071002,
+    "seen": 1794624446.1892264,
+    "ast_hash": "8af9681504448ad245d418d06df72816",
     "semantic_hash": ""
   },
   "formats/xlsx/images.go": {
-    "mtime": 1794622868.7689455,
-    "seen": 1794623164.590987,
-    "ast_hash": "4ef70f460dd8032b92e345fee9b52984",
+    "mtime": 1794624299.606378,
+    "seen": 1794624446.1892278,
+    "ast_hash": "4c7310c8a10579ccd35f5e2eb07209cc",
     "semantic_hash": ""
   },
   "formats/xlsx/model.go": {
-    "mtime": 1794622868.768068,
-    "seen": 1794623164.5909889,
-    "ast_hash": "0dac70524e5b9c32abce177fb2ef9d95",
+    "mtime": 1794624299.6029024,
+    "seen": 1794624446.1892288,
+    "ast_hash": "6fd8f1ed728a16117586cfe4b945926e",
     "semantic_hash": ""
   },
   "formats/xlsx/reader_test.go": {
-    "mtime": 1794622954.0370274,
-    "seen": 1794623164.59099,
-    "ast_hash": "1eebf9defabcd51c499c9baa75a54497",
+    "mtime": 1794624394.8714607,
+    "seen": 1794624446.1892304,
+    "ast_hash": "3bed3e06330e841b1cd3d46f05ac95d0",
     "semantic_hash": ""
   },
   "formats/xlsx/styles.go": {
-    "mtime": 1794622868.767492,
-    "seen": 1794623164.5909915,
-    "ast_hash": "75f40f2e5bb740e025c21f157531818b",
+    "mtime": 1794624335.232168,
+    "seen": 1794624446.1892316,
+    "ast_hash": "16dee8f7b70b1dc0377f80b1905cd154",
     "semantic_hash": ""
   },
   "formats/xlsx/text.go": {
-    "mtime": 1794622878.6279535,
-    "seen": 1794623164.5909932,
-    "ast_hash": "135e6ac2cac9d27963d7eb1705afe52f",
+    "mtime": 1794624299.603756,
+    "seen": 1794624446.1892328,
+    "ast_hash": "6b24f7d4fbf075803e133883dbc465ee",
     "semantic_hash": ""
   },
   "formats/xlsx/value.go": {
@@ -750,21 +750,27 @@
     "semantic_hash": ""
   },
   "formats/xlsx/xlsx.go": {
-    "mtime": 1794622912.2856302,
-    "seen": 1794623164.5909958,
-    "ast_hash": "d280a9b7d29e9b71d126b6c950e6f0f0",
+    "mtime": 1794624429.8485155,
+    "seen": 1794624446.189235,
+    "ast_hash": "d6422ceb8354aedd5013f6adac0a15ed",
     "semantic_hash": ""
   },
   "formats/xlsx/xlsx_test.go": {
-    "mtime": 1793599956.0417957,
-    "seen": 1794623164.590997,
-    "ast_hash": "94d85bac0203d29e3a9ff0c65caf0560",
+    "mtime": 1794624377.3206596,
+    "seen": 1794624446.189236,
+    "ast_hash": "de41d622bbbe3fbdbd0634600c5d829b",
     "semantic_hash": ""
   },
   "pipeline/styled.go": {
     "mtime": 1793599956.0597641,
     "seen": 1794623164.5910487,
     "ast_hash": "feb4cf977dc76e95307c0a92c3279af1",
+    "semantic_hash": ""
+  },
+  "formats/xlsx/features_test.go": {
+    "mtime": 1794624394.8719091,
+    "seen": 1794624446.189225,
+    "ast_hash": "4099ffb955ffb199be49bbff1e5d6a76",
     "semantic_hash": ""
   }
 }

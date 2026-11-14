@@ -5,6 +5,7 @@ package xlsx
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/gsoultan/gexcel/style"
@@ -205,4 +206,132 @@ func widthChars(px float64, digitW float64) float64 {
 		return 0
 	}
 	return math.Round(px/digitW*100) / 100
+}
+
+// gradientOf maps a CSS linear-gradient() to a spreadsheet gradient fill, or
+// returns nil when v is not a gradient a cell can show (repeating gradients,
+// stops positioned by length). Translucent stops are composited over under,
+// the colours painted below the cell. CSS angles run clockwise from "to
+// top"; spreadsheet angles run clockwise from "left to right".
+func gradientOf(v string, under ...css.Color) *style.Gradient {
+	fn, args, ok := css.Function(strings.TrimSpace(v))
+	if !ok {
+		return nil
+	}
+	if fn = strings.TrimPrefix(strings.TrimPrefix(strings.ToLower(fn), "-webkit-"), "-moz-"); fn != "linear-gradient" {
+		return nil
+	}
+	parts := css.SplitCommas(args)
+	if len(parts) == 0 {
+		return nil
+	}
+	angle := 180.0
+	first := strings.ToLower(strings.TrimSpace(parts[0]))
+	if strings.HasPrefix(first, "to ") {
+		var dx, dy float64
+		for _, d := range strings.Fields(first[3:]) {
+			switch d {
+			case "left":
+				dx = -1
+			case "right":
+				dx = 1
+			case "top":
+				dy = -1
+			case "bottom":
+				dy = 1
+			}
+		}
+		if dx == 0 && dy == 0 {
+			return nil
+		}
+		angle = math.Atan2(dx, -dy) * 180 / math.Pi
+		parts = parts[1:]
+	} else if a, ok := cssAngle(first); ok {
+		angle = a
+		parts = parts[1:]
+	}
+	base := css.Color{R: 1, G: 1, B: 1, A: 1}
+	for _, l := range under {
+		base = over(l, base)
+	}
+	var stops []style.GradientStop
+	var set []bool
+	for _, p := range parts {
+		toks := css.SplitValue(p)
+		if len(toks) == 0 {
+			continue
+		}
+		c, ok := css.ParseColor(toks[0], css.Black)
+		if !ok {
+			if len(toks) == 1 {
+				continue // an interpolation hint
+			}
+			return nil
+		}
+		col := style.RGB(argb(over(c, base)))
+		if len(toks) == 1 {
+			stops, set = append(stops, style.GradientStop{Color: col}), append(set, false)
+			continue
+		}
+		for _, t := range toks[1:] {
+			if !strings.HasSuffix(t, "%") {
+				return nil
+			}
+			pct, err := strconv.ParseFloat(strings.TrimSuffix(t, "%"), 64)
+			if err != nil {
+				return nil
+			}
+			stops, set = append(stops, style.GradientStop{Position: clamp(pct / 100), Color: col}), append(set, true)
+		}
+	}
+	n := len(stops)
+	if n < 2 {
+		return nil
+	}
+	if !set[0] {
+		stops[0].Position, set[0] = 0, true
+	}
+	if !set[n-1] {
+		stops[n-1].Position, set[n-1] = 1, true
+	}
+	for i := 1; i < n; i++ {
+		if !set[i] { // spread unpositioned stops evenly up to the next positioned one
+			j := i
+			for !set[j] {
+				j++
+			}
+			from, to := stops[i-1].Position, math.Max(stops[j].Position, stops[i-1].Position)
+			for k := i; k < j; k++ {
+				stops[k].Position, set[k] = from+(to-from)*float64(k-i+1)/float64(j-i+1), true
+			}
+		}
+		stops[i].Position = math.Max(stops[i].Position, stops[i-1].Position)
+	}
+	deg := math.Mod(math.Round(angle)-90, 360)
+	if deg < 0 {
+		deg += 360
+	}
+	return &style.Gradient{Degree: deg, Stops: stops}
+}
+
+// cssAngle parses a CSS angle into degrees.
+func cssAngle(v string) (float64, bool) {
+	for _, u := range []struct {
+		suffix string
+		toDeg  float64
+	}{{"deg", 1}, {"grad", 0.9}, {"rad", 180 / math.Pi}, {"turn", 360}} {
+		if num, ok := strings.CutSuffix(v, u.suffix); ok {
+			// "grad" also ends in "rad": the longer unit is tried first.
+			if f, err := strconv.ParseFloat(strings.TrimSpace(num), 64); err == nil {
+				return f * u.toDeg, true
+			}
+		}
+	}
+	return 0, false
+}
+
+// over composites c on the opaque colour bg.
+func over(c, bg css.Color) css.Color {
+	a := clamp(c.A)
+	return css.Color{R: c.R*a + bg.R*(1-a), G: c.G*a + bg.G*(1-a), B: c.B*a + bg.B*(1-a), A: 1}
 }

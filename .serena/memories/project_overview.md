@@ -44,10 +44,17 @@ widest of cell/row/group/table wins), alignment, indent from padding-left, colum
 numbers, %, currency ($ € £ ¥ ₹ USD EUR GBP, Rp/IDR with dot thousands), accounting negatives,
 ISO dates -> typed cells with a number format that shows the original text; header cells and
 identifiers (007) stay text; data-type/data-value/data-formula override; Config.DetectNumbers
-(WithNumberDetection, CLI -no-numbers). <a href> -> hyperlink rels; PNG/JPEG/GIF <img> ->
-drawing oneCellAnchor (GIF re-encoded PNG, SVG warned). Metadata -> docProps/core.xml.
+(WithNumberDetection, CLI -no-numbers). Formulas: gexcel.go cacheFormulas runs gexcel's Calculate
+so cached values are written (fullCalcOnLoad stays on; #NAME? from a missing function or a cycle
+falls back to the cell's text). <a href> -> hyperlink rels; <a href="#id"> -> internal link
+(extract.go mark/link/resolveLinks: ids of cells, tables and the headings that name a table).
+linear-gradient() cell background -> gradient fill (styles.go gradientOf; CSS angle - 90 =
+Excel degree). PNG/JPEG/GIF <img> -> drawing oneCellAnchor (GIF re-encoded PNG, SVG warned);
+Config.ImagesInCells (WithImagesInCells, CLI -images-in-cells, off by default) stores the picture
+of an image-only cell as a gexcel cell image (rich value). Metadata -> docProps/core.xml.
 Tests: reader_test.go re-parses the package independently; xlsx_test.go checks cells, styles,
-merges, names, images, limits (32767 chars, control chars), and TestLibreOfficeRoundTrip
+merges, names, images, limits (32767 chars, control chars); features_test.go checks in-cell
+pictures, internal links, gradients and cached formula values; TestLibreOfficeRoundTrip
 (skips without soffice) compares LibreOffice's CSV export, formula evaluated.
 
 Accuracy tooling: accuracy/run.sh with internal/tools/pixdiff (raw and -near ink diff),
@@ -55,5 +62,5 @@ internal/tools/textdiff (word positions vs Chromium) and internal/tools/mdhtml (
 HTML Chromium renders). See accuracy_and_blink_quirks for thresholds and current numbers.
 
 Toolchain: go 1.26 (GOTOOLCHAIN=auto). Deps: gpdf (pinned to a main commit that has
-DrawTextWithStyle / text opacity), gexcel v0.1.0 (the Excel writer; bump with `go get github.com/gsoultan/gexcel@vX.Y.Z`),
+DrawTextWithStyle / text opacity), gexcel (the Excel writer; pinned to the commit that adds cell pictures until a release after v0.1.0 is tagged, then `go get github.com/gsoultan/gexcel@vX.Y.Z`),
 goldmark, x/net, cascadia.

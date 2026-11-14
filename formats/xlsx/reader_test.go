@@ -44,7 +44,7 @@ type rsheet struct {
 	name     string
 	cells    map[string]rcell
 	merges   []string
-	links    map[string]string // ref -> target
+	links    map[string]string // ref -> target; "#location" inside the workbook
 	freeze   int
 	cols     map[int]float64
 	hiddenC  map[int]bool
@@ -361,8 +361,9 @@ func (b *rbook) readSheet(t *testing.T, name, path string, body []byte) *rsheet 
 			Ref string `xml:"ref,attr"`
 		} `xml:"mergeCells>mergeCell"`
 		Links []struct {
-			Ref string `xml:"ref,attr"`
-			ID  string `xml:"http://schemas.openxmlformats.org/officeDocument/2006/relationships id,attr"`
+			Ref      string `xml:"ref,attr"`
+			Location string `xml:"location,attr"`
+			ID       string `xml:"http://schemas.openxmlformats.org/officeDocument/2006/relationships id,attr"`
 		} `xml:"hyperlinks>hyperlink"`
 		Drawing struct {
 			ID string `xml:"http://schemas.openxmlformats.org/officeDocument/2006/relationships id,attr"`
@@ -426,6 +427,10 @@ func (b *rbook) readSheet(t *testing.T, name, path string, body []byte) *rsheet 
 	relsPath := strings.Replace(path, "worksheets/", "worksheets/_rels/", 1) + ".rels"
 	rels := readRels(t, b.files[relsPath])
 	for _, l := range ws.Links {
+		if l.ID == "" && l.Location != "" { // a link inside the workbook
+			sh.links[l.Ref] = "#" + l.Location
+			continue
+		}
 		target, ok := rels[l.ID]
 		if !ok {
 			t.Fatalf("%s: hyperlink %s has no relationship", path, l.Ref)

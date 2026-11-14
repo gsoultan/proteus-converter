@@ -21,6 +21,7 @@ const emuPerPx = model.EMUPerPixel
 // an .xlsx package.
 func write(wb *workbook, meta core.Metadata, w io.Writer) error {
 	out := gexcel.NewEmpty()
+	var sheets []gexcel.Sheet
 	for i, sh := range wb.sheets {
 		gs, err := out.AddSheet(sh.name)
 		if err != nil {
@@ -32,7 +33,9 @@ func write(wb *workbook, meta core.Metadata, w io.Writer) error {
 		if err := fillSheet(gs, sh); err != nil {
 			return fmt.Errorf("proteus: xlsx: sheet %q: %w", sh.name, err)
 		}
+		sheets = append(sheets, gs)
 	}
+	cacheFormulas(out, wb, sheets)
 	props := out.Properties()
 	props.Title, props.Subject, props.Creator = cleanXML(meta.Title), cleanXML(meta.Subject), cleanXML(meta.Author)
 	props.Keywords, props.Language = cleanXML(meta.Keywords), cleanXML(meta.Language)
@@ -116,11 +119,21 @@ func fillSheet(gs gexcel.Sheet, sh *sheet) error {
 		gs.SetPrintTitleRows(1, sh.freezeRows)
 	}
 	for _, l := range sh.links {
-		if err := gs.AddHyperlink(cellRef(l.r, l.c), l.target, cleanXML(l.tooltip)); err != nil {
+		var err error
+		if l.location != "" {
+			err = gs.AddInternalLink(cellRef(l.r, l.c), cleanXML(l.location), cleanXML(l.tooltip))
+		} else {
+			err = gs.AddHyperlink(cellRef(l.r, l.c), l.target, cleanXML(l.tooltip))
+		}
+		if err != nil {
 			return err
 		}
 	}
 	for _, img := range sh.images {
+		if img.inCell {
+			gs.Cell(cellRef(img.r, img.c)).SetImage(model.CellImage{Format: img.ext, Data: img.data, AltText: cleanXML(img.alt)})
+			continue
+		}
 		err := gs.AddImage(cellRef(img.r, img.c), model.Image{
 			Name:   cleanXML(img.name),
 			Format: img.ext,
@@ -138,6 +151,46 @@ func fillSheet(gs gexcel.Sheet, sh *sheet) error {
 		}
 	}
 	return nil
+}
+
+// cacheFormulas calculates the workbook's formulas with gexcel's engine so
+// that applications that do not calculate (viewers, importers) show values;
+// Excel still recalculates on load. A formula the engine cannot evaluate
+// (a function it lacks gives #NAME?) keeps the cell's own text, if any, as
+// its cached value instead of an error Excel would not show.
+func cacheFormulas(out gexcel.Workbook, wb *workbook, sheets []gexcel.Sheet) {
+	type fcell struct {
+		gc gexcel.Cell
+		c  *cell
+	}
+	var cells []fcell
+	for si, sh := range wb.sheets {
+		for i, r := range sh.rows {
+			if r == nil {
+				continue
+			}
+			for j, c := range r.cells {
+				if c != nil && c.kind == kindFormula {
+					cells = append(cells, fcell{sheets[si].Cell(cellRef(i+1, j+1)), c})
+				}
+			}
+		}
+	}
+	if len(cells) == 0 {
+		return
+	}
+	failed := out.Calculate() != nil // a circular reference: no value can be trusted
+	for _, fc := range cells {
+		if v := fc.gc.Value(); !failed && !(v.Kind == model.KindError && v.Str == model.ErrName) {
+			continue
+		}
+		f := strings.TrimPrefix(fc.c.formula, "=")
+		if fc.c.text != "" {
+			fc.gc.SetFormulaResult(f, cleanXML(fc.c.text))
+		} else {
+			fc.gc.SetFormula(f)
+		}
+	}
 }
 
 // cleanXML drops the control characters XML 1.0 forbids (Excel refuses files

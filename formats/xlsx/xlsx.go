@@ -15,8 +15,11 @@
 // ISO dates and accounting negatives are stored as typed values with a
 // number format that shows the original text; data-type="string|number|
 // bool|date|formula", data-value and data-formula attributes override the
-// detection. Links become cell hyperlinks and PNG/JPEG/GIF images are
-// embedded at their cell.
+// detection. Formulas are calculated on conversion so that their values are
+// cached in the file. A linear-gradient() cell background becomes a gradient
+// fill. Links become cell hyperlinks ("#id" links point at the cell that
+// holds the id) and PNG/JPEG/GIF images float at their cell, or, with
+// core.WithImagesInCells, become the value of a cell that holds nothing else.
 //
 // A document without tables becomes one sheet with a row per block of text.
 // Text outside tables in a document that has tables is not written (a

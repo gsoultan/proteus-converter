@@ -74,14 +74,17 @@ func (r cellRange) String() string {
 }
 
 type hyperlink struct {
-	r, c    int
-	target  string
-	tooltip string
+	r, c     int
+	target   string // URL, or empty for a link inside the workbook
+	location string // "'Sheet'!A1" for a link inside the workbook
+	tooltip  string
 }
 
 type anchoredImage struct {
 	r, c      int // 1-based anchor cell
 	name      string
+	alt       string
+	inCell    bool   // the picture is the cell's value instead of floating over it
 	ext       string // "png" or "jpeg"
 	data      []byte
 	wPx, hPx  float64

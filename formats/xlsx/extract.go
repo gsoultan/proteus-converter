@@ -27,8 +27,64 @@ type extractor struct {
 	// lastHeading is the text of the most recent heading, which names the
 	// next table that has no caption.
 	lastHeading string
+	// headingIDs are the ids of the headings met since the last table; they
+	// point at the sheet of the next table.
+	headingIDs []string
+	// anchors maps element ids to the cell that holds them, and pending are
+	// the "#id" links to resolve once every sheet exists.
+	anchors map[string]anchor
+	pending []pendingLink
 	// omitted counts non-table blocks skipped because tables map to sheets.
 	omitted int
+}
+
+// anchor is the cell an element id landed in.
+type anchor struct {
+	sh   *sheet
+	r, c int
+}
+
+// pendingLink is a link to an id elsewhere in the document.
+type pendingLink struct {
+	anchor
+	id, tooltip string
+}
+
+// mark records where ids landed; the first use of an id wins, as in HTML.
+func (e *extractor) mark(sh *sheet, r, c int, ids ...string) {
+	for _, id := range ids {
+		if _, ok := e.anchors[id]; !ok && id != "" {
+			if e.anchors == nil {
+				e.anchors = map[string]anchor{}
+			}
+			e.anchors[id] = anchor{sh, r, c}
+		}
+	}
+}
+
+// link records the hyperlink of a cell: an external target, or else a link
+// to an id that resolveLinks turns into a cell reference.
+func (e *extractor) link(sh *sheet, r, c int, ct content) {
+	switch {
+	case ct.link != "":
+		sh.links = append(sh.links, hyperlink{r: r, c: c, target: ct.link, tooltip: ct.linkTitle})
+	case ct.internal != "":
+		e.pending = append(e.pending, pendingLink{anchor{sh, r, c}, ct.internal, ct.linkTitle})
+	}
+}
+
+// resolveLinks turns "#id" links into links to the cell that holds the id.
+// Links to ids that were not written (text outside tables, say) are dropped.
+func (e *extractor) resolveLinks() {
+	for _, p := range e.pending {
+		to, ok := e.anchors[p.id]
+		if !ok {
+			continue
+		}
+		loc := "'" + strings.ReplaceAll(to.sh.name, "'", "''") + "'!" + cellRef(to.r, to.c)
+		p.sh.links = append(p.sh.links, hyperlink{r: p.r, c: p.c, location: loc, tooltip: p.tooltip})
+	}
+	e.pending = nil
 }
 
 func (e *extractor) style(n *html.Node) *css.Style {
@@ -64,10 +120,12 @@ func (e *extractor) run(root *html.Node) error {
 		sh := e.newSheet("Document", "document")
 		e.wb.sheets = append(e.wb.sheets, sh)
 		e.blocks(body, sh)
+		e.resolveLinks()
 		return e.ctx.Err()
 	}
-	e.lastHeading = ""
+	e.lastHeading, e.headingIDs = "", nil
 	e.collectTables(body, nil, false)
+	e.resolveLinks()
 	if e.omitted > 0 {
 		e.warn(fmt.Sprintf("xlsx: %d block(s) of text outside tables were not written; each table becomes a sheet", e.omitted))
 	}
@@ -98,6 +156,9 @@ func (e *extractor) collectTables(n *html.Node, out *[]*html.Node, count bool) {
 		case "h1", "h2", "h3", "h4", "h5", "h6":
 			if !count {
 				e.lastHeading = collapseText(plainText(n, e), "normal")
+				if id := attr(n, "id"); id != "" {
+					e.headingIDs = append(e.headingIDs, id)
+				}
 			}
 			return
 		}
@@ -235,6 +296,8 @@ func (e *extractor) table(t *html.Node) {
 	sh := e.newSheet(name, "table")
 	e.lastHeading = "" // a heading names only the table that follows it
 	e.wb.sheets = append(e.wb.sheets, sh)
+	e.mark(sh, 1, 1, append(e.headingIDs, attr(t, "id"))...)
+	e.headingIDs = nil
 	ts := e.style(t)
 	collapse := ts.BorderCollapse == "collapse"
 
@@ -501,6 +564,9 @@ func (e *extractor) cell(sh *sheet, n *html.Node, r, c, rowspan, colspan int, cx
 	}
 	layers = append(layers, s.BackgroundColor)
 	x.Fill = blend(layers...)
+	if g := gradientOf(s.BackgroundGradient, layers[:len(layers)-1]...); g != nil {
+		x.Fill = style.Fill{Gradient: g}
+	}
 	bd := borderOf(s)
 	if cx.collapse {
 		// Collapsing borders: the cell, its row, row group and (on the outer
@@ -550,11 +616,13 @@ func (e *extractor) cell(sh *sheet, n *html.Node, r, c, rowspan, colspan int, cx
 	}
 	cl.st, cl.styled = x, true
 
-	if content.link != "" {
-		sh.links = append(sh.links, hyperlink{r: r, c: c, target: content.link, tooltip: content.linkTitle})
-	}
+	e.mark(sh, r, c, content.ids...)
+	e.link(sh, r, c, content)
+	inCell := e.cfg.ImagesInCells && cl.kind == kindEmpty && len(content.images) == 1
 	for _, img := range content.images {
-		e.placeImage(sh, img, r, c, s)
+		if e.placeImage(sh, img, r, c, s) && inCell {
+			sh.images[len(sh.images)-1].inCell = true
+		}
 	}
 	// Multi-line text needs a taller row for every line to show.
 	if lines := strings.Count(cl.text, "\n") + 1; lines > 1 && rowspan == 1 {
@@ -658,13 +726,15 @@ func (e *extractor) blocks(n *html.Node, sh *sheet) {
 				cl.runs = content.runs
 			}
 			x := style.Style{Font: f, Fill: blend(s.BackgroundColor), Border: borderOf(s)}
+			if g := gradientOf(s.BackgroundGradient); g != nil {
+				x.Fill = style.Fill{Gradient: g}
+			}
 			x.Alignment.Horizontal = horizontalOf(s)
 			x.Alignment.Vertical = style.VAlignTop
 			x.Alignment.WrapText = true
 			cl.st, cl.styled = x, true
-			if content.link != "" {
-				sh.links = append(sh.links, hyperlink{r: r, c: 1, target: content.link, tooltip: content.linkTitle})
-			}
+			e.mark(sh, r, 1, content.ids...)
+			e.link(sh, r, 1, content)
 			for _, img := range content.images {
 				e.placeImage(sh, img, r, 1, s)
 			}

@@ -52,8 +52,10 @@
   gexcel.go (cleanXML) before values reach gexcel.
 - XLSX gaps: text outside tables is dropped when the document has tables (warning counts
   blocks); nested tables are flattened into the cell text (em space between cells, newline
-  between rows); gradients/background images, text alpha, diagonal borders, column-level
-  hidden only via visibility:collapse; WOFF/system font names are passed through as-is.
+  between rows); radial/repeating gradients and background images, text alpha, diagonal borders, column-level
+  hidden only via visibility:collapse; WOFF/system font names are passed through as-is; SVG
+  images are not embedded; "#id" links to text that was not written are dropped; in-cell
+  pictures (Config.ImagesInCells) are opt-in because LibreOffice and Excel <= 2019 show #VALUE!.
 - Unsupported / approximated (PDF): quirks-mode UA margins (use <!DOCTYPE html>), grid-auto-flow column
   and dense, radial/conic gradients, SVG gradients (average stop color, with a warning), SVG
   filters/masks/clipPath, overflow clipping of text, canvas/video, WOFF2 collections, contextual
